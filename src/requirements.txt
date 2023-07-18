@@ -1,0 +1,11 @@
+pyobjc
+rumps
+google-api-python-client 
+google-auth-httplib2 
+google-auth-oauthlib
+pytz
+py2app
+py2app[setuptools]
+requests
+chardet
+appdirs
