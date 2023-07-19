@@ -1,0 +1,24 @@
+Privacy Policy
+
+
+This Privacy Policy governs the manner in which Vince ("the App") collects, uses, maintains, and discloses information collected from users ("User" or "you") of the App. We are committed to protecting your privacy and ensuring the security of any personal information you provide while using our App.
+
+Information Collection and Use:
+The App does not collect or store any personal data or user information. When you use the App, it securely accesses and retrieves your Google Calendar data from your Google Workspace account in real-time. This data is processed and stored temporarily in the device's memory for the sole purpose of displaying your calendar events within the App.
+
+Data Security:
+We prioritize the security of your personal information. The App utilizes industry-standard security measures to protect your data from unauthorized access, alteration, disclosure, or destruction. All data retrieved from your Google Calendar is securely stored in memory and is not transmitted or stored elsewhere.
+
+Third-Party Services:
+The App utilizes Google Workspace services for accessing your Google Calendar data. Please review Google's Privacy Policy for information on how they handle your data.
+
+Data Retention:
+The App does not retain any of your Google Calendar data beyond the duration of your session. Once you exit the App or close the application, all temporarily stored data is removed from memory. The only data stored is the token to access your calendar.
+
+Changes to this Privacy Policy:
+We reserve the right to update or modify this Privacy Policy at any time. Any changes will be reflected on this page, and the effective date will be updated accordingly. We encourage you to review this Privacy Policy periodically for any updates.
+
+Contact Us:
+If you have any questions or concerns regarding this Privacy Policy or the App's practices, please contact us at stefano.tranquillini@gmail.com
+
+By using the Vince App, you signify your acceptance of this Privacy Policy. If you do not agree to this Privacy Policy, please do not use the App.
