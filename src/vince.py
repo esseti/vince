@@ -13,7 +13,10 @@ from appdirs import user_data_dir
 
 
 from datetime import datetime, date, timedelta
-
+def str_truncate(string, width):
+    if len(string) > width:
+        string = string[:width-3] + '...'
+    return string
 class Vince(rumps.App):
     def __init__(self):
         super(Vince, self).__init__("Vince")
@@ -133,6 +136,7 @@ class Vince(rumps.App):
         minutes, seconds = divmod(remainder, 60)
         time_left_str = f"{hours:02d}:{minutes:02d}" #:{seconds:02d}
         if not show_seconds:
+            minutes+=1
             return hours, minutes
         else:
             return hours, minutes, seconds
@@ -164,10 +168,12 @@ class Vince(rumps.App):
                         res.append(item)
                     else:
                         if start_time == item['start']:
-                            res.append()
+                            res.append(item)
                         else:
                             return res
         return res
+
+
 
     @rumps.timer(1)  
     def update_bar_str(self, _):
@@ -182,7 +188,8 @@ class Vince(rumps.App):
             # first all the current, with time left
             for event in current_events:
                 hours, minutes, seconds = self._time_left(event['end'], current_datetime, True)
-                title +=f" {event['summary'][:20]}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
+
+                title +=f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
                 i_current_events +=1
                 # separated with comma if more than one
                 if i_current_events < len_current_events:
@@ -190,16 +197,17 @@ class Vince(rumps.App):
           
             len_next_events = len(next_events)
             i_next_events = 0
-            # then a pipe, if there's current and upcoming
-            if len_current_events and len_next_events:
-                title += " | "
             # and upcoming with thime left before the start
+            if len_next_events:
+                title += " ["
             for event in next_events:
                 hours, minutes = self._time_left(event['start'], current_datetime)
-                title +=f"{event['summary']}: in {hours:02d}:{minutes:02d}"
+                title +=f"{str_truncate(event['summary'],20)}: in {hours:02d}:{minutes:02d}"
                 i_next_events +=1
                 if i_next_events < len_next_events:
                     title+=", "
+            if len_next_events:
+                title += "]"
             self.title = title
         else:
             self.title = f"-"
@@ -262,13 +270,13 @@ class Vince(rumps.App):
             for event in next_events:
                 horus, minutes= self._time_left(event['start'],current_datetime)
                 if horus==0 and minutes == 1:
-                    if event['url']:
-                        rumps.notification(
+                    rumps.notification(
                             title="It's meeting time",
                             subtitle=f"{event['summary']}",
                             message=f"{event['summary']}",
                             sound=True
                         )
+                    if event['url']:
                         webbrowser.open(event['url'])
 
     

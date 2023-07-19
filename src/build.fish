@@ -1,6 +1,6 @@
 #!/bin/bash
 rm -rf dist/
 rm -rf build/
-rm -r /Applications/vince.app
+rm -r /Applications/Vince.app
 python setup.py py2app
-mv dist/vince.app /Applications/
+cp -r dist/Vince.app /Applications/
