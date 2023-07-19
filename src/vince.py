@@ -4,6 +4,7 @@ import os.path
 import webbrowser
 import pytz 
 import os
+import json
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -17,17 +18,18 @@ def str_truncate(string, width):
     if len(string) > width:
         string = string[:width-3] + '...'
     return string
+
 class Vince(rumps.App):
     def __init__(self):
         super(Vince, self).__init__("Vince")
         self.scopes =['https://www.googleapis.com/auth/calendar.readonly']
         self.flow = None
-
         # this is to get the library folder
-        app_name = "Vince" 
-        data_dir = user_data_dir(app_name)
+        self.app_name = "Vince" 
+        self.settings = self.load_settings()
+
+        data_dir = user_data_dir(self.app_name)
         file_path = os.path.join(data_dir, "token.json")
-  
         creds = None
         # handles google login at startup. not the best, but works     
         token_path = str(file_path)
@@ -81,9 +83,8 @@ class Vince(rumps.App):
         # creates the menu, 
         self.menu.clear() 
         # add the refresh button, just in case
-        refresh_btn = rumps.MenuItem("Refresh")
-        refresh_btn.set_callback(self.refresh_menu)
-        self.menu.add(refresh_btn)
+        
+        
         # Create a menu item for each item in the list
         current_datetime = datetime.now(pytz.utc)
         for item in self.menu_items:
@@ -101,12 +102,18 @@ class Vince(rumps.App):
                 menu_item.set_callback(self.open_browser)  
             self.menu.add(menu_item)
         # add the quit button
+        settings_item = rumps.MenuItem("Settings", callback=self.open_settings_window)
+        self.menu.add(settings_item)
+        refresh_btn = rumps.MenuItem("Refresh")
+        refresh_btn.set_callback(self.refresh_menu)
+        self.menu.add(refresh_btn)
         quit_btn = rumps.MenuItem("Quit")
         quit_btn.set_callback(self.quit)
         self.menu.add(quit_btn)
     
     def open_browser(self, sender):
-        webbrowser.open(sender.url)  
+        if self.settings['link_opening_enabled']:
+            webbrowser.open(sender.url)  
 
     @rumps.clicked("Refresh Menu")
     def refresh_menu(self, _):
@@ -237,7 +244,8 @@ class Vince(rumps.App):
 
     @rumps.timer(60) 
     def send_notification_(self, _):
-        
+        if not self.settings['notification_enabled']:
+            return
         if self.menu_items:
             current_datetime = datetime.now(pytz.utc)
             current_events = self._get_current_events()
@@ -262,6 +270,8 @@ class Vince(rumps.App):
 
     @rumps.timer(60) 
     def send_open_1_min(self, _):
+        if not self.settings['notification_enabled']:
+            return
         # 1 min beofre the meeting it opens the browser with the link
         # you can't miss it. 
         if self.menu_items:
@@ -284,6 +294,53 @@ class Vince(rumps.App):
     def quit(self,_):
         print('over')
         rumps.quit_application()
+
+      
+
+    def load_settings(self):
+        data_dir = user_data_dir(self.app_name)
+        settings_path =  os.path.join(data_dir, "settings.json")
+        default_settings = {
+            "link_opening_enabled": True,
+            "notification_enabled": True,
+        }
+        try:
+            with open(settings_path, "r") as settings_file:
+                settings = json.load(settings_file)
+                # Merge loaded settings with default settings
+                settings = {**default_settings, **settings}
+        except (FileNotFoundError, json.JSONDecodeError):
+            settings = default_settings
+        return settings
+
+    def save_settings(self):
+        data_dir = user_data_dir(self.app_name)
+        settings_path =  os.path.join(data_dir, "settings.json")
+        with open(settings_path, "w") as settings_file:
+            json.dump(self.settings, settings_file, indent=4)
+
+    def open_settings_window(self, _):
+        window = rumps.Window(title="Vince Settings", dimensions=(300, 200))
+        window.message = "Configure your settings:"
+        window.default_text = json.dumps(self.settings,indent=2)
+        res = window.run()
+        print(self.settings)
+        try:
+            self.settings=json.loads(res.text)
+            self.save_settings()
+            rumps.notification(
+                    title="Saved settings",
+                    subtitle="",
+                    message="Saved settings",
+                    sound=True
+                )
+        except:
+            rumps.notification(
+                    title="Cannot save the settings",
+                    subtitle="",
+                    message="There was an error",
+                    sound=True
+                )
 
 if __name__ == "__main__":
     app = Vince()
