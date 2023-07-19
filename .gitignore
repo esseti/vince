@@ -162,3 +162,4 @@ cython_debug/
 # avoiding crendtials and token.. for time being
 src/token.json
 src/*.json
+.vscode
