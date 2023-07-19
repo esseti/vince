@@ -93,7 +93,7 @@ class Vince(rumps.App):
                 menu_item = rumps.MenuItem(title=f"[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}")
             else:
                 # if it's current, does not print time
-                menu_item = rumps.MenuItem(title=f"[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}] {item['summary']}")
+                menu_item = rumps.MenuItem(title=f"[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}")
             if item['url']:
                 # if there's a meet link it adds the link and the "clicking option"
                 # otherwise the item cannot be clicked. and it look disable.
