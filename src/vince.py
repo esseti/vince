@@ -69,12 +69,25 @@ class Vince(rumps.App):
             d_events = []
             if events:
                 for event in events:
-                    start = event['start'].get('dateTime', event['start'].get('date'))
-                    end =  event['end'].get('dateTime', event['start'].get('date'))
-                    start = datetime.strptime(start,"%Y-%m-%dT%H:%M:%S%z")
-                    end = datetime.strptime(end,"%Y-%m-%dT%H:%M:%S%z")
-                    d_event = dict(start=start,end=end,summary=event["summary"],url=event.get('hangoutLink',''))
-                    d_events.append(d_event)
+                    try:
+                        start = event['start'].get('dateTime', event['start'].get('date'))
+                        end =  event['end'].get('dateTime', event['start'].get('date'))
+                        start = datetime.strptime(start,"%Y-%m-%dT%H:%M:%S%z")
+                        end = datetime.strptime(end,"%Y-%m-%dT%H:%M:%S%z")
+                    except:
+                        # most probably a daily event
+                        continue
+                    add_event = True
+                    # skip declined events. 
+                 
+                    if attendees:=event.get('attendees',[]):
+                        for attendee in attendees:
+                            if attendee.get('self',False):
+                                if attendee['responseStatus'] == 'declined':
+                                    add_event=False
+                    if add_event:
+                        d_event = dict(start=start,end=end,summary=event["summary"],url=event.get('hangoutLink',''))
+                        d_events.append(d_event)
             self.menu_items = d_events
         except HttpError as err:
             print(err)
