@@ -366,7 +366,7 @@ class Vince(rumps.App):
             data = {
                 "profile": {
                     "status_text": f"{event['summary']} [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]",
-                    "status_emoji": ':calendar:'
+                    "status_emoji": ':date:'
                 }
             }
             epoch = self._convert_minutes_to_epoch(minutes)
