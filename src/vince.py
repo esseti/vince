@@ -26,7 +26,7 @@ def str_truncate(string, width):
 
 class Vince(rumps.App):
     def __init__(self):
-        super(Vince, self).__init__("Vince",icon="menu-icon.icns",template=True)
+        super(Vince, self).__init__("Vince", icon="menu-icon.png",template=True)
         self.scopes = ['https://www.googleapis.com/auth/calendar.readonly']
         self.flow = None
         # this is to get the library folder
