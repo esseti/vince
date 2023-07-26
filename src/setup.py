@@ -8,7 +8,7 @@ Usage:
 from setuptools import setup
 
 APP = ['vince.py']
-DATA_FILES = [('', ['credentials.json','icon.png'])]
+DATA_FILES = [('', ['credentials.json','icon.icns'])]
 
 OPTIONS = {
            'argv_emulation': True, 
