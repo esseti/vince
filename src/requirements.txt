@@ -9,3 +9,4 @@ py2app[setuptools]
 requests
 chardet
 appdirs
+requests
