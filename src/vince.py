@@ -28,7 +28,8 @@ def str_truncate(string, width):
 
 class Vince(rumps.App):
     def __init__(self):
-        super(Vince, self).__init__("Vince", icon="menu-icon.png",template=True)
+        super(Vince, self).__init__(
+            "Vince", icon="menu-icon.png", template=True)
         self.scopes = ['https://www.googleapis.com/auth/calendar.readonly']
         self.flow = None
         # this is to get the library folder
@@ -50,7 +51,7 @@ class Vince(rumps.App):
                     creds.refresh(Request())
                 except:
                     flow = InstalledAppFlow.from_client_secrets_file(
-                    'credentials.json', self.scopes)
+                        'credentials.json', self.scopes)
                     creds = flow.run_local_server(port=0)
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
@@ -105,7 +106,7 @@ class Vince(rumps.App):
                                     add_event = False
                     if add_event:
                         d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event.get(
-                            'hangoutLink', ''),eventType=event['eventType'])
+                            'hangoutLink', ''), eventType=event['eventType'])
                         d_events.append(d_event)
             self.menu_items = d_events
         except HttpError as err:
@@ -180,6 +181,9 @@ class Vince(rumps.App):
         time_left_str = f"{hours:02d}:{minutes:02d}"  # :{seconds:02d}
         if not show_seconds:
             minutes += 1
+            if minutes == 60:
+                hours += 1
+                minutes = 0
             return hours, minutes
         else:
             return hours, minutes, seconds
@@ -238,13 +242,13 @@ class Vince(rumps.App):
                     title += ", "
             if current_events != self.current_events:
                 if not current_events:
-                     self.slack_meeting(None)
+                    self.slack_meeting(None)
                 else:
                     event = sorted(current_events, key=lambda x: x["end"])[0]
                     self.slack_meeting(event)
-          
+
                 self.current_events = current_events
-                    # get the shortest one and update with taht data
+                # get the shortest one and update with taht data
             len_next_events = len(next_events)
             i_next_events = 0
             # and upcoming with thime left before the start
@@ -343,12 +347,13 @@ class Vince(rumps.App):
         rumps.quit_application()
 
     def _convert_minutes_to_epoch(self, mins):
-        future = datetime.utcnow() + timedelta(minutes=mins+1)  
+        future = datetime.utcnow() + timedelta(minutes=mins+1)
         epoch = calendar.timegm(future.timetuple())
         return epoch
-    
+
     def slack_meeting(self, event, reset=False):
-        auth = {'Authorization': 'Bearer %s' % self.settings['slack_oauth_token']}
+        auth = {
+            'Authorization': 'Bearer %s' % self.settings['slack_oauth_token']}
         # if reset:
         #     data = {"num_minutes": 0}
         #     res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
@@ -358,22 +363,22 @@ class Vince(rumps.App):
         if not event:
             data = {
                 "profile": {
-                    "status_text":"",
+                    "status_text": "",
                     "status_emoji": ""
                 }
             }
             epoch = self._convert_minutes_to_epoch(0)
             data['profile']["status_expiration"] = epoch
             res = requests.post('https://slack.com/api/users.profile.set', json=data,
-                        headers=auth)
+                                headers=auth)
             data = {"num_minutes": 0}
             res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
-                            headers=auth)
+                               headers=auth)
         else:
             minutes = (event['end']-current_datetime).seconds // 60
-            if event['eventType']=='outOfOffice':
+            if event['eventType'] == 'outOfOffice':
                 status_emoji = ":no_entry_sign:"
-            elif event['eventType']=='focusTime':
+            elif event['eventType'] == 'focusTime':
                 status_emoji = ":person_in_lotus_position:"
             elif event['summary'].lower() in ['lunch']:
                 status_emoji = ":chef-brb:"
@@ -389,11 +394,10 @@ class Vince(rumps.App):
             epoch = self._convert_minutes_to_epoch(minutes)
             data['profile']["status_expiration"] = epoch
             res = requests.post('https://slack.com/api/users.profile.set', json=data,
-                        headers=auth)
-            data = {"num_minutes":minutes}
-            res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
                                 headers=auth)
-                
+            data = {"num_minutes": minutes}
+            res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
+                               headers=auth)
 
     def load_settings(self):
         data_dir = user_data_dir(self.app_name)
@@ -418,26 +422,27 @@ class Vince(rumps.App):
         settings_path = os.path.join(data_dir, "settings.json")
         with open(settings_path, "w") as settings_file:
             json.dump(self.settings, settings_file, indent=4)
-    
-    
+
     def slack_oauth(self):
-        client_id='3091729876.2525836761175'
-        scopes="user_scope=dnd:write,users.profile:write,users:write"
-        state=''.join(random.choices(string.ascii_uppercase + string.digits, k = 15)) 
-        url = "https://slack.com/oauth/v2/authorize?client_id="+client_id+"&scope=&"+scopes+"&state="+state
-        rumps.alert("Proceed in the browers and copy the string `xoxo--..` and past them in the settings at `slack_oauth_token`")
+        client_id = '3091729876.2525836761175'
+        scopes = "user_scope=dnd:write,users.profile:write,users:write"
+        state = ''.join(random.choices(
+            string.ascii_uppercase + string.digits, k=15))
+        url = "https://slack.com/oauth/v2/authorize?client_id=" + \
+            client_id+"&scope=&"+scopes+"&state="+state
+        rumps.alert(
+            "Proceed in the browers and copy the string `xoxo--..` and past them in the settings at `slack_oauth_token`")
         webbrowser.open(url)
         self.open_settings_window(None)
-       
-
 
     def open_settings_window(self, _):
-        window = rumps.Window(title="Vince Settings", dimensions=(300, 200),ok='Save settings',cancel=True)
+        window = rumps.Window(title="Vince Settings", dimensions=(
+            300, 200), ok='Save settings', cancel=True)
         window.message = "Configure your settings:"
         window.default_text = json.dumps(self.settings, indent=2)
         window.add_button('Slack Setup')
         res = window.run()
-        if res.clicked ==2:
+        if res.clicked == 2:
             self.slack_oauth()
         try:
             self.settings = json.loads(res.text)
