@@ -106,7 +106,7 @@ class Vince(rumps.App):
                                     add_event = False
                     if add_event:
                         d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event.get(
-                            'hangoutLink', ''), eventType=event['eventType'])
+                            'hangoutLink', ''), eventType=event['eventType'],visibility=event.get('visibility','default'))
                         d_events.append(d_event)
             self.menu_items = d_events
         except HttpError as err:
@@ -384,10 +384,14 @@ class Vince(rumps.App):
                 status_emoji = ":chef-brb:"
             else:
                 status_emoji = ":date:"
-
+            
+            if event['visibility'] in ['default','public']:
+                status_text = f"{event['summary']} [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
+            else:
+                status_text = f"Meeting [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
             data = {
                 "profile": {
-                    "status_text": f"{event['summary']} [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]",
+                    "status_text": status_text,
                     "status_emoji": status_emoji
                 }
             }
