@@ -9,6 +9,7 @@ import requests
 import calendar
 import random
 import string
+import re
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -105,12 +106,27 @@ class Vince(rumps.App):
                                 if attendee['responseStatus'] == 'declined':
                                     add_event = False
                     if add_event:
-                        d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event.get(
-                            'hangoutLink', ''), eventType=event['eventType'],visibility=event.get('visibility','default'))
+                        event_url = event.get(
+                            'hangoutLink', '')
+                        if not event_url:
+                            description = event.get("description","")
+                            urls = self.extract_urls(description)
+                            if urls:
+                                event_url = urls[0]
+                        d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url, eventType=event['eventType'],visibility=event.get('visibility','default'))
                         d_events.append(d_event)
             self.menu_items = d_events
         except HttpError as err:
             print(err)
+
+    def extract_urls(self, text):
+        # Regular expression pattern to match URLs
+        url_pattern = r"(https?://\S+|meet\.\S+)"
+        
+        # Find all occurrences of the pattern in the text
+        urls = re.findall(url_pattern, text)
+        
+        return urls
 
     def build_menu(self):
         # creates the menu,
