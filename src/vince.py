@@ -190,11 +190,10 @@ class Vince(rumps.App):
 
         time_left = event_time - current_datetime
         time_left_str = str(time_left).split(".")[0]
-        time_left_str = time_left_str.split(
-            ",")[0]  # Remove microseconds if present
+        time_left_str = time_left_str.split(",")[0] # Remove microseconds if present
         hours, remainder = divmod(time_left.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-        time_left_str = f"{hours:02d}:{minutes:02d}"  # :{seconds:02d}
+        time_left_str = f"{hours:02d}:{minutes:02d}" # :{seconds:02d}
         if not show_seconds:
             minutes += 1
             if minutes == 60:
@@ -250,7 +249,6 @@ class Vince(rumps.App):
             for event in current_events:
                 hours, minutes, seconds = self._time_left(
                     event['end'], current_datetime, True)
-
                 title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
                 i_current_events += 1
                 # separated with comma if more than one
@@ -349,10 +347,10 @@ class Vince(rumps.App):
             if current_datetime.second == 0:
                 next_events = self._get_next_events()
                 for event in next_events:
-                    horus, minutes, seconds = self._time_left(
+                    hours, minutes = self._time_left(
                         event['start'], current_datetime, show_seconds=True)
                     
-                    if horus == 0 and minutes == 1:
+                    if hours == 0 and minutes == 1:
                         rumps.notification(
                             title="It's meeting time",
                             subtitle=f"{event['summary']}",
