@@ -308,54 +308,59 @@ class Vince(rumps.App):
         else:
             return ""
 
-    @rumps.timer(60)
+    @rumps.timer(1)
     def send_notification_(self, _):
         if not self.settings['notification_enabled']:
             return
         if self.menu_items:
             current_datetime = datetime.now(pytz.utc)
-            current_events = self._get_current_events()
-            for event in current_events:
-                hours, minutes = self._time_left(
-                    event['end'], current_datetime)
-                # send a notification 5 min before the end that event it's almost over
-                if hours == 0 and minutes == 5:
-                    rumps.notification(
-                        title="5 minutes left",
-                        subtitle="Just 5",
-                        message="I said 5 mins left",
-                        sound=True
-                    )
-                # and when it's over
-                if hours == 0 and minutes == 0:
-                    rumps.notification(
-                        title="It's over",
-                        subtitle="It's over",
-                        message="It's over",
-                        sound=True
-                    )
+            if current_datetime.second == 0:
+                current_events = self._get_current_events()
+                for event in current_events:
+                    hours, minutes = self._time_left(
+                        event['end'], current_datetime)
+                    # send a notification 5 min before the end that event it's almost over
+                    minutes_notifications = self.settings['notification_time_left']
+                    for minute_notification in minutes_notifications:
+                        if hours == 0 and minutes == minute_notification:
+                            rumps.notification(
+                                title=f"{minute_notification} minutes left",
+                                subtitle=f"Just {minute_notification}",
+                                message=f"I said {minute_notification} mins left",
+                                sound=True
+                            )
+                    # and when it's over
+                    if hours == 0 and minutes == 0:
+                        rumps.notification(
+                            title="It's over",
+                            subtitle="It's over",
+                            message="It's over",
+                            sound=True
+                        )
 
-    @rumps.timer(60)
-    def send_open_1_min(self, _):
+    @rumps.timer(1)
+    def send_and_open_link(self, _):
         if not self.settings['notification_enabled']:
             return
         # 1 min beofre the meeting it opens the browser with the link
         # you can't miss it.
         if self.menu_items:
             current_datetime = datetime.now(pytz.utc)
-            next_events = self._get_next_events()
-            for event in next_events:
-                horus, minutes = self._time_left(
-                    event['start'], current_datetime)
-                if horus == 0 and minutes == 1:
-                    rumps.notification(
-                        title="It's meeting time",
-                        subtitle=f"{event['summary']}",
-                        message=f"{event['summary']}",
-                        sound=True
-                    )
-                    if event['url']:
-                        webbrowser.open(event['url'])
+            if current_datetime.second == 0:
+                next_events = self._get_next_events()
+                for event in next_events:
+                    horus, minutes, seconds = self._time_left(
+                        event['start'], current_datetime, show_seconds=True)
+                    
+                    if horus == 0 and minutes == 1:
+                        rumps.notification(
+                            title="It's meeting time",
+                            subtitle=f"{event['summary']}",
+                            message=f"{event['summary']}",
+                            sound=True
+                        )
+                        if event['url']:
+                            webbrowser.open(event['url'])
 
     @rumps.clicked("Quit")
     def quit(self, _):
@@ -425,8 +430,9 @@ class Vince(rumps.App):
         default_settings = {
             "link_opening_enabled": True,
             "notification_enabled": True,
+            "notification_time_left":[5],
             "slack_status_enabled": False,
-            "slack_oauth_token": ""
+            "slack_oauth_token": "",
         }
         try:
             with open(settings_path, "r") as settings_file:
