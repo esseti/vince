@@ -348,7 +348,7 @@ class Vince(rumps.App):
                 next_events = self._get_next_events()
                 for event in next_events:
                     hours, minutes = self._time_left(
-                        event['start'], current_datetime, show_seconds=True)
+                        event['start'], current_datetime)
                     
                     if hours == 0 and minutes == 1:
                         rumps.notification(
