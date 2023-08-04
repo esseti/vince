@@ -65,6 +65,11 @@ class Vince(rumps.App):
         self.load_events()
         self.build_menu()
 
+    @rumps.timer(60*5)
+    def timely_load_events(self, _):
+        self.load_events()
+
+
     def load_events(self):
         # gets all todays' event from calendar
         try:
@@ -237,49 +242,53 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def update_bar_str(self, _):
+        if self.settings['show_menu_bar']:
         # updates the bar
-        if self.menu_items:
-            current_datetime = datetime.now(pytz.utc)
-            current_events = self._get_current_events()
-            next_events = self._get_next_events()
-            title = ""
-            len_current_events = len(current_events)
-            i_current_events = 0
-            # first all the current, with time left
-            for event in current_events:
-                hours, minutes, seconds = self._time_left(
-                    event['end'], current_datetime, True)
-                title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
-                i_current_events += 1
-                # separated with comma if more than one
-                if i_current_events < len_current_events:
-                    title += ", "
-            if current_events != self.current_events:
-                if not current_events:
-                    self.slack_meeting(None)
-                else:
-                    event = sorted(current_events, key=lambda x: x["end"])[0]
-                    self.slack_meeting(event)
+            if self.menu_items:
+                current_datetime = datetime.now(pytz.utc)
+                current_events = self._get_current_events()
+                next_events = self._get_next_events()
+                title = ""
+                len_current_events = len(current_events)
+                i_current_events = 0
+                # first all the current, with time left
+                for event in current_events:
+                    hours, minutes, seconds = self._time_left(
+                        event['end'], current_datetime, True)
+                    title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
+                    i_current_events += 1
+                    # separated with comma if more than one
+                    if i_current_events < len_current_events:
+                        title += ", "
+                if current_events != self.current_events:
+                    if not current_events:
+                        self.slack_meeting(None)
+                    else:
+                        event = sorted(current_events, key=lambda x: x["end"])[0]
+                        self.slack_meeting(event)
 
-                self.current_events = current_events
-                # get the shortest one and update with taht data
-            len_next_events = len(next_events)
-            i_next_events = 0
-            # and upcoming with thime left before the start
-            if len_next_events:
-                title += " ["
-            for event in next_events:
-                hours, minutes = self._time_left(
-                    event['start'], current_datetime)
-                title += f"{str_truncate(event['summary'],20)}: in {hours:02d}:{minutes:02d}"
-                i_next_events += 1
-                if i_next_events < len_next_events:
-                    title += ", "
-            if len_next_events:
-                title += "]"
-            self.title = title
+                    self.current_events = current_events
+                    # get the shortest one and update with taht data
+                len_next_events = len(next_events)
+                i_next_events = 0
+                # and upcoming with thime left before the start
+                if len_next_events:
+                    title += " ["
+                for event in next_events:
+                    hours, minutes = self._time_left(
+                        event['start'], current_datetime)
+                    title += f"{str_truncate(event['summary'],20)}: in {hours:02d}:{minutes:02d}"
+                    i_next_events += 1
+                    if i_next_events < len_next_events:
+                        title += ", "
+                if len_next_events:
+                    title += "]"
+                self.title = title
+            else:
+                self.title = f""
         else:
-            self.title = f"-"
+            self.title = f""
+                
 
     def _str_event_menu_current(self, element):
         # create the items in the menu. util function
@@ -427,6 +436,7 @@ class Vince(rumps.App):
         settings_path = os.path.join(data_dir, "settings.json")
         default_settings = {
             "link_opening_enabled": True,
+            "show_menu_bar": True,
             "notification_enabled": True,
             "notification_time_left":[5],
             "slack_status_enabled": False,
