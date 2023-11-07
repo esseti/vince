@@ -65,12 +65,21 @@ class Vince(rumps.App):
         self.load_events()
         self.build_menu()
 
-    @rumps.timer(60*5)
+    @rumps.timer(90*5)
     def timely_load_events(self, _):
         self.load_events()
 
-
+    
     def load_events(self):
+        # d_events=[]
+        # now = datetime.now(pytz.utc)
+        # i=1
+        # d_event = dict(id=1, start=now+timedelta(seconds=15), end=now+timedelta(seconds=30), summary=f"Event {i}", url="URL {i}", eventType='',visibility='default')
+        # d_events.append(d_event)    
+        # i=2
+        # d_event = dict(id=1, start=now+timedelta(seconds=65), end=now+timedelta(seconds=185+60), summary=f"Event {i}", url="http://{i}.com", eventType='',visibility='default')
+        # d_events.append(d_event)   
+        # self.menu_items = d_events
         # gets all todays' event from calendar
         try:
             service = build('calendar', 'v3', credentials=self.creds)
@@ -178,14 +187,13 @@ class Vince(rumps.App):
         self.build_menu()
         self.update_exiting_events(None)
 
-    @rumps.timer(60)
+    @rumps.timer(61)
     def update_exiting_events(self, _):
         # every 60 seconds remove the events that are past.
         current_datetime = datetime.now(pytz.utc)
         res = []
         for el in self.menu_items:
             if el['end'] >= current_datetime:
-
                 res.append(el)
         self.menu_items = res
         self.build_menu()
@@ -317,29 +325,30 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def send_notification_(self, _):
-        if not self.settings['notification_enabled']:
-            return
-        if self.menu_items:
-            current_datetime = datetime.now(pytz.utc)
-            if current_datetime.second == 0:
+        if self.settings['notifications']:
+         
+            if self.menu_items:
+                current_datetime = datetime.now(pytz.utc)
                 current_events = self._get_current_events()
                 for event in current_events:
-                    hours, minutes = self._time_left(
-                        event['end'], current_datetime)
+                    hours, minutes, seconds = self._time_left(
+                    event['end'], current_datetime, True)
                     # send a notification 5 min before the end that event it's almost over
-                    minutes_notifications = self.settings['notification_time_left']
-                    for minute_notification in minutes_notifications:
-                        if hours == 0 and minutes == minute_notification:
-                            rumps.notification(
-                                title=f"{minute_notification} minutes left",
-                                subtitle=f"Just {minute_notification}",
-                                message=f"I said {minute_notification} mins left",
-                                sound=True
-                            )
-                    # and when it's over
-                    if hours == 0 and minutes == 0:
+                    notifications = self.settings['notifications']
+                    for notification in notifications:
+                        minute_notification = notification['time_left']
+                        if hours == 0 and minutes == minute_notification and seconds==0:
+                                rumps.notification(
+                                    title=f"{minute_notification} minutes left",
+                                    subtitle=f"Just {minute_notification}",
+                                    message=f"I said {minute_notification} mins left",
+                                    sound=notification['sound']
+                                )
+                                
+                        # and when it's over
+                    if hours == 0 and minutes == 0 and seconds==0:
                         rumps.notification(
-                            title="It's over",
+                            title=f"{event['summary']}",
                             subtitle="It's over",
                             message="It's over",
                             sound=True
@@ -347,27 +356,25 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def send_and_open_link(self, _):
-        if not self.settings['notification_enabled']:
-            return
-        # 1 min beofre the meeting it opens the browser with the link
-        # you can't miss it.
-        if self.menu_items:
-            current_datetime = datetime.now(pytz.utc)
-            if current_datetime.second == 0:
+        if self.settings['link_opening_enabled']:
+            # 1 min beofre the meeting it opens the browser with the link
+            # you can't miss it.
+            if self.menu_items:
+                current_datetime = datetime.now(pytz.utc)
                 next_events = self._get_next_events()
                 for event in next_events:
-                    hours, minutes = self._time_left(
-                        event['start'], current_datetime)
-                    
-                    if hours == 0 and minutes == 1:
+                    hours, minutes, seconds = self._time_left(
+                    event['start'], current_datetime, True)
+                    if hours == 0 and minutes == 1 and seconds == 0:
                         rumps.notification(
                             title="It's meeting time",
-                            subtitle=f"{event['summary']}",
-                            message=f"{event['summary']}",
+                            subtitle=f"For {event['summary']}",
+                            message=f"For {event['summary']}",
                             sound=True
                         )
-                        if event['url']:
-                            webbrowser.open(event['url'])
+                        if self.settings['link_opening_enabled']:
+                            if event['url']:
+                                webbrowser.open(event['url'])
 
     @rumps.clicked("Quit")
     def quit(self, _):
@@ -437,8 +444,17 @@ class Vince(rumps.App):
         default_settings = {
             "link_opening_enabled": True,
             "show_menu_bar": True,
-            "notification_enabled": True,
-            "notification_time_left":[5],
+            "notifications": [
+                {
+                "time_left":5,
+                "sound": False
+            },{
+                "time_left":3,
+                "sound": False
+            },{
+                "time_left":1,
+                "sound": False
+            }],
             "slack_status_enabled": False,
             "slack_oauth_token": "",
         }
