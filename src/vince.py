@@ -16,6 +16,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from appdirs import user_data_dir
+from bs4 import BeautifulSoup
 
 
 from datetime import datetime, date, timedelta
@@ -122,23 +123,28 @@ class Vince(rumps.App):
                     if add_event:
                         event_url = event.get(
                             'hangoutLink', '')
+                        description = event.get("description","")
+                        urls = self.extract_urls(description)
                         if not event_url:
-                            description = event.get("description","")
-                            urls = self.extract_urls(description)
                             if urls:
                                 event_url = urls[0]
-                        d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url, eventType=event['eventType'],visibility=event.get('visibility','default'))
+                        d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url,  urls=urls, eventType=event['eventType'],visibility=event.get('visibility','default'))
                         d_events.append(d_event)
             self.menu_items = d_events
         except HttpError as err:
             print(err)
-
+    
     def extract_urls(self, text):
-        # Regular expression pattern to match URLs
-        url_pattern = r"(https?://\S+|meet\.\S+)"
+        # # Regular expression pattern to match URLs
+        # url_pattern = r"(https?://\S+|meet\.\S+)"
         
-        # Find all occurrences of the pattern in the text
-        urls = re.findall(url_pattern, text)
+        # # Find all occurrences of the pattern in the text
+        # urls = re.findall(url_pattern, text)
+        soup = BeautifulSoup(text, 'html.parser')
+ 
+        urls = []
+        for link in soup.find_all('a'):
+            urls.append(link.get('href'))
         
         return urls
 
@@ -373,8 +379,9 @@ class Vince(rumps.App):
                             sound=True
                         )
                         if self.settings['link_opening_enabled']:
-                            if event['url']:
-                                webbrowser.open(event['url'])
+                            if event['urls']:
+                                for url in event['urls']:
+                                    webbrowser.open(url)
 
     @rumps.clicked("Quit")
     def quit(self, _):
