@@ -11,7 +11,7 @@ APP = ['vince.py']
 DATA_FILES = [('', ['credentials.json','icon.png','menu-icon.png'])]
 
 OPTIONS = {
-           'argv_emulation': True, 
+            'argv_emulation': False,
            'plist': {'LSUIElement': True,
                       'CFBundleName': 'Vince',
                       'CFBundleShortVersionString': '0.0.1', 

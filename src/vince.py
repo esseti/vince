@@ -1,3 +1,4 @@
+from datetime import datetime, date, timedelta
 import rumps
 import os
 import os.path
@@ -16,9 +17,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from appdirs import user_data_dir
-
-
-from datetime import datetime, date, timedelta
+from bs4 import BeautifulSoup
+import logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def str_truncate(string, width):
@@ -69,16 +71,15 @@ class Vince(rumps.App):
     def timely_load_events(self, _):
         self.load_events()
 
-    
     def load_events(self):
         # d_events=[]
         # now = datetime.now(pytz.utc)
         # i=1
         # d_event = dict(id=1, start=now+timedelta(seconds=15), end=now+timedelta(seconds=30), summary=f"Event {i}", url="URL {i}", eventType='',visibility='default')
-        # d_events.append(d_event)    
+        # d_events.append(d_event)
         # i=2
         # d_event = dict(id=1, start=now+timedelta(seconds=65), end=now+timedelta(seconds=185+60), summary=f"Event {i}", url="http://{i}.com", eventType='',visibility='default')
-        # d_events.append(d_event)   
+        # d_events.append(d_event)
         # self.menu_items = d_events
         # gets all todays' event from calendar
         try:
@@ -86,60 +87,80 @@ class Vince(rumps.App):
             # Get today's date and format it
             today = datetime.combine(date.today(), datetime.min.time())
             # Retrieve events for today
-            events_result = service.events().list(
-                calendarId='primary',
-                timeMin=today.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-                timeMax=(datetime.combine(date.today(), datetime.min.time(
-                )) + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
-                singleEvents=True,
-                orderBy='startTime',
-                showDeleted=False,
-            ).execute()
 
-            events = events_result.get('items', [])
             d_events = []
-            if events:
-                for event in events:
-                    try:
-                        id = event['id']
-                        start = event['start'].get(
-                            'dateTime', event['start'].get('date'))
-                        end = event['end'].get(
-                            'dateTime', event['start'].get('date'))
-                        start = datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z")
-                        end = datetime.strptime(end, "%Y-%m-%dT%H:%M:%S%z")
-                    except:
-                        # most probably a daily event
-                        continue
-                    add_event = True
-                    # skip declined events.
+            for calendar in self.settings.get('calendars', ['primary']):
+                try:
+                    events_result = service.events().list(
+                        calendarId=calendar,
+                        timeMin=today.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+                        timeMax=(datetime.combine(date.today(), datetime.min.time(
+                        )) + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+                        singleEvents=True,
+                        orderBy='startTime',
+                        showDeleted=False,
+                    ).execute()
 
-                    if attendees := event.get('attendees', []):
-                        for attendee in attendees:
-                            if attendee.get('self', False):
-                                if attendee['responseStatus'] == 'declined':
-                                    add_event = False
-                    if add_event:
-                        event_url = event.get(
-                            'hangoutLink', '')
-                        if not event_url:
-                            description = event.get("description","")
+                    events = events_result.get('items', [])
+                except Exception as e:
+                    print(e)
+                    events = None
+                if events:
+                    for event in events:
+                        try:
+                            id = event['id']
+                            start = event['start'].get(
+                                'dateTime', event['start'].get('date'))
+                            end = event['end'].get(
+                                'dateTime', event['start'].get('date'))
+                            start = datetime.strptime(
+                                start, "%Y-%m-%dT%H:%M:%S%z")
+                            end = datetime.strptime(end, "%Y-%m-%dT%H:%M:%S%z")
+                        except:
+                            # most probably a daily event
+                            continue
+                        add_event = True
+                        # skip declined events.
+
+                        if attendees := event.get('attendees', []):
+                            for attendee in attendees:
+                                if attendee.get('self', False):
+                                    if attendee['responseStatus'] == 'declined':
+                                        add_event = False
+                        if add_event:
+                            event_url = event.get(
+                                'hangoutLink', '')
+                            description = event.get("description", "")
                             urls = self.extract_urls(description)
-                            if urls:
-                                event_url = urls[0]
-                        d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url, eventType=event['eventType'],visibility=event.get('visibility','default'))
-                        d_events.append(d_event)
+                            if not event_url:
+                                if urls:
+                                    event_url = urls[0]
+                            else:
+                                urls.append(event_url)
+                            logging.debug(
+                                f"{event['summary']} | {event.get('description','')}  | {event_url}")
+                            d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url,
+                                           urls=urls, eventType=event['eventType'], visibility=event.get('visibility', 'default'))
+                            d_events.append(d_event)
+            d_events = sorted(d_events, key=lambda d: d['start'])
             self.menu_items = d_events
         except HttpError as err:
             print(err)
 
     def extract_urls(self, text):
-        # Regular expression pattern to match URLs
-        url_pattern = r"(https?://\S+|meet\.\S+)"
-        
-        # Find all occurrences of the pattern in the text
-        urls = re.findall(url_pattern, text)
-        
+        # # Regular expression pattern to match URLs
+        # url_pattern = r"(https?://\S+|meet\.\S+)"
+
+        # # Find all occurrences of the pattern in the text
+        # urls = re.findall(url_pattern, text)
+        soup = BeautifulSoup(text, 'html.parser')
+
+        urls = []
+        for link in soup.find_all('a'):
+            urls.append(link.get('href'))
+        if not urls:
+            for link in re.findall(r"(?P<url>https?://[^\s]+)", text):
+                urls.append(link)
         return urls
 
     def build_menu(self):
@@ -163,7 +184,7 @@ class Vince(rumps.App):
             if item['url']:
                 # if there's a meet link it adds the link and the "clicking option"
                 # otherwise the item cannot be clicked. and it look disable.
-                menu_item.url = item['url']
+                menu_item.urls = item['urls']
                 menu_item.set_callback(self.open_browser)
             self.menu.add(menu_item)
         # add the quit button
@@ -179,13 +200,17 @@ class Vince(rumps.App):
 
     def open_browser(self, sender):
         if self.settings['link_opening_enabled']:
-            webbrowser.open(sender.url)
+            for url in sender.urls:
+                webbrowser.open(url)
 
     @rumps.clicked("Refresh Menu")
     def refresh_menu(self, _):
         self.load_events()
         self.build_menu()
         self.update_exiting_events(None)
+        
+
+
 
     @rumps.timer(61)
     def update_exiting_events(self, _):
@@ -203,10 +228,11 @@ class Vince(rumps.App):
 
         time_left = event_time - current_datetime
         time_left_str = str(time_left).split(".")[0]
-        time_left_str = time_left_str.split(",")[0] # Remove microseconds if present
+        time_left_str = time_left_str.split(
+            ",")[0]  # Remove microseconds if present
         hours, remainder = divmod(time_left.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-        time_left_str = f"{hours:02d}:{minutes:02d}" # :{seconds:02d}
+        time_left_str = f"{hours:02d}:{minutes:02d}"  # :{seconds:02d}
         if not show_seconds:
             minutes += 1
             if minutes == 60:
@@ -251,7 +277,7 @@ class Vince(rumps.App):
     @rumps.timer(1)
     def update_bar_str(self, _):
         if self.settings['show_menu_bar']:
-        # updates the bar
+            # updates the bar
             if self.menu_items:
                 current_datetime = datetime.now(pytz.utc)
                 current_events = self._get_current_events()
@@ -263,7 +289,10 @@ class Vince(rumps.App):
                 for event in current_events:
                     hours, minutes, seconds = self._time_left(
                         event['end'], current_datetime, True)
-                    title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d} left"
+                    if hours > 0 or minutes > 15:
+                        title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}"
+                    else:
+                        title += f" {str_truncate(event['summary'],20)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
                     i_current_events += 1
                     # separated with comma if more than one
                     if i_current_events < len_current_events:
@@ -272,7 +301,8 @@ class Vince(rumps.App):
                     if not current_events:
                         self.slack_meeting(None)
                     else:
-                        event = sorted(current_events, key=lambda x: x["end"])[0]
+                        event = sorted(
+                            current_events, key=lambda x: x["end"])[0]
                         self.slack_meeting(event)
 
                     self.current_events = current_events
@@ -296,7 +326,6 @@ class Vince(rumps.App):
                 self.title = f""
         else:
             self.title = f""
-                
 
     def _str_event_menu_current(self, element):
         # create the items in the menu. util function
@@ -326,27 +355,27 @@ class Vince(rumps.App):
     @rumps.timer(1)
     def send_notification_(self, _):
         if self.settings['notifications']:
-         
+
             if self.menu_items:
                 current_datetime = datetime.now(pytz.utc)
                 current_events = self._get_current_events()
                 for event in current_events:
                     hours, minutes, seconds = self._time_left(
-                    event['end'], current_datetime, True)
+                        event['end'], current_datetime, True)
                     # send a notification 5 min before the end that event it's almost over
                     notifications = self.settings['notifications']
                     for notification in notifications:
                         minute_notification = notification['time_left']
-                        if hours == 0 and minutes == minute_notification and seconds==0:
-                                rumps.notification(
-                                    title=f"{minute_notification} minutes left",
-                                    subtitle=f"Just {minute_notification}",
-                                    message=f"I said {minute_notification} mins left",
-                                    sound=notification['sound']
-                                )
-                                
+                        if hours == 0 and minutes == minute_notification and seconds == 0:
+                            rumps.notification(
+                                title=f"{minute_notification} minutes left",
+                                subtitle=f"Just {minute_notification}",
+                                message=f"I said {minute_notification} mins left",
+                                sound=notification['sound']
+                            )
+
                         # and when it's over
-                    if hours == 0 and minutes == 0 and seconds==0:
+                    if hours == 0 and minutes == 0 and seconds == 0:
                         rumps.notification(
                             title=f"{event['summary']}",
                             subtitle="It's over",
@@ -364,7 +393,7 @@ class Vince(rumps.App):
                 next_events = self._get_next_events()
                 for event in next_events:
                     hours, minutes, seconds = self._time_left(
-                    event['start'], current_datetime, True)
+                        event['start'], current_datetime, True)
                     if hours == 0 and minutes == 1 and seconds == 0:
                         rumps.notification(
                             title="It's meeting time",
@@ -373,12 +402,16 @@ class Vince(rumps.App):
                             sound=True
                         )
                         if self.settings['link_opening_enabled']:
-                            if event['url']:
-                                webbrowser.open(event['url'])
+                            if event['urls']:
+                                for url in event['urls']:
+                                    webbrowser.open(url)
 
     @rumps.clicked("Quit")
     def quit(self, _):
         print('over')
+        data_dir = user_data_dir(self.app_name)
+        file_path = os.path.join(data_dir, "token.json")
+        os.remove(file_path)
         rumps.quit_application()
 
     def _convert_minutes_to_epoch(self, mins):
@@ -387,8 +420,11 @@ class Vince(rumps.App):
         return epoch
 
     def slack_meeting(self, event, reset=False):
+        slack_token = self.settings.get('slack_oauth_token',"")
+        if not slack_token:
+            return
         auth = {
-            'Authorization': 'Bearer %s' % self.settings['slack_oauth_token']}
+            'Authorization': 'Bearer %s' % slack_token}
         # if reset:
         #     data = {"num_minutes": 0}
         #     res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
@@ -419,8 +455,8 @@ class Vince(rumps.App):
                 status_emoji = ":chef-brb:"
             else:
                 status_emoji = ":date:"
-            
-            if event['visibility'] in ['default','public']:
+
+            if event['visibility'] in ['default', 'public']:
                 status_text = f"{event['summary']} [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
             else:
                 status_text = f"Meeting [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
@@ -442,21 +478,20 @@ class Vince(rumps.App):
         data_dir = user_data_dir(self.app_name)
         settings_path = os.path.join(data_dir, "settings.json")
         default_settings = {
+            "calendars": ["primary"],
             "link_opening_enabled": True,
             "show_menu_bar": True,
             "notifications": [
                 {
-                "time_left":5,
-                "sound": False
-            },{
-                "time_left":3,
-                "sound": False
-            },{
-                "time_left":1,
-                "sound": False
-            }],
-            "slack_status_enabled": False,
-            "slack_oauth_token": "",
+                    "time_left": 5,
+                    "sound": False
+                }, {
+                    "time_left": 3,
+                    "sound": False
+                }, {
+                    "time_left": 1,
+                    "sound": False
+                }],
         }
         try:
             with open(settings_path, "r") as settings_file:
