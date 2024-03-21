@@ -14,7 +14,7 @@ OPTIONS = {
             'argv_emulation': False,
            'plist': {'LSUIElement': True,
                       'CFBundleName': 'Vince',
-                      'CFBundleShortVersionString': '0.0.1', 
+                      'CFBundleShortVersionString': '1.0.0', 
                       },
            'iconfile':'icon.png',
            }
