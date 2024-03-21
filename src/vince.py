@@ -208,6 +208,9 @@ class Vince(rumps.App):
         self.load_events()
         self.build_menu()
         self.update_exiting_events(None)
+        
+
+
 
     @rumps.timer(61)
     def update_exiting_events(self, _):
@@ -406,6 +409,9 @@ class Vince(rumps.App):
     @rumps.clicked("Quit")
     def quit(self, _):
         print('over')
+        data_dir = user_data_dir(self.app_name)
+        file_path = os.path.join(data_dir, "token.json")
+        os.remove(file_path)
         rumps.quit_application()
 
     def _convert_minutes_to_epoch(self, mins):

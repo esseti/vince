@@ -1,16 +1,7 @@
 # Vince
 Vince - Early is on time, on time is late and late is unacceptable!
 
-## HOW TO USE: APP NOT VERIFIED
-You are required to signup with google to fetch your calandar data.
-[**The app is not verified**](https://support.google.com/cloud/answer/7454865?hl=en#:~:text=An%20unverified%20app%20is%20an,their%20data%20from%20deceptive%20apps.) since it's a slow and tedius process that I'm working on that in my free time. 
-
-To use it:
-
-- When the warning page is shown
-- click on advance (bottom left)
-- And from there you should be able to use it even if not verified.
-
+www.stefanotranquillini.com/vince
 
 ## Main features
 ![img](https://github.com/esseti/vince/assets/1928354/a78b9221-67de-4e5a-a13d-e0a874ec5237)
