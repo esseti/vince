@@ -159,7 +159,7 @@ class Vince(rumps.App):
         for link in soup.find_all('a'):
             urls.append(link.get('href'))
         if not urls:
-            for link in re.findall("(?P<url>https?://[^\s]+)", text):
+            for link in re.findall(r"(?P<url>https?://[^\s]+)", text):
                 urls.append(link)
         return urls
 
