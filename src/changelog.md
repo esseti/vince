@@ -1,3 +1,6 @@
+# [1.1.0] - ?
+- STEFANO: improving messages when connection is missing.
+
 # [1.0.0] - 2024-03-21
 - STEFANO: a lot of things happened and changed. Since approved by google, it's time to make a major.
   

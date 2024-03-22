@@ -19,6 +19,9 @@ from googleapiclient.errors import HttpError
 from appdirs import user_data_dir
 from bs4 import BeautifulSoup
 import logging
+import urllib.request
+import time
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -39,6 +42,30 @@ class Vince(rumps.App):
         self.app_name = "Vince"
         self.settings = self.load_settings()
         self.current_events = []
+        self.creds = None
+        
+        
+    def _has_internet(self):
+
+        try:
+            urllib.request.urlopen("https://www.google.com")
+            return True
+        except urllib.error.URLError:
+            return False
+    @rumps.timer(5)
+    def _load(self,_):
+        if self.creds:
+            return 
+        if not self._has_internet():
+            print(f"Waiting for internet ... ")
+            self.title = "Waiting for internet ...  "
+            quit_btn = rumps.MenuItem("Quit")
+            quit_btn.set_callback(self.quit)
+            self.menu.clear()
+            self.menu.add(quit_btn)
+            return 
+           
+              
 
         data_dir = user_data_dir(self.app_name)
         file_path = os.path.join(data_dir, "token.json")
@@ -69,6 +96,8 @@ class Vince(rumps.App):
 
     @rumps.timer(90*5)
     def timely_load_events(self, _):
+        if not self.creds:
+            return
         self.load_events()
 
     def load_events(self):
@@ -214,6 +243,8 @@ class Vince(rumps.App):
 
     @rumps.timer(61)
     def update_exiting_events(self, _):
+        if not self.creds:
+            return
         # every 60 seconds remove the events that are past.
         current_datetime = datetime.now(pytz.utc)
         res = []
@@ -276,6 +307,8 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def update_bar_str(self, _):
+        if not self.creds:
+            return
         if self.settings['show_menu_bar']:
             # updates the bar
             if self.menu_items:
@@ -354,6 +387,8 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def send_notification_(self, _):
+        if not self.creds:
+            return 
         if self.settings['notifications']:
 
             if self.menu_items:
@@ -385,6 +420,8 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def send_and_open_link(self, _):
+        if not self.creds:
+            return 
         if self.settings['link_opening_enabled']:
             # 1 min beofre the meeting it opens the browser with the link
             # you can't miss it.
@@ -409,9 +446,6 @@ class Vince(rumps.App):
     @rumps.clicked("Quit")
     def quit(self, _):
         print('over')
-        data_dir = user_data_dir(self.app_name)
-        file_path = os.path.join(data_dir, "token.json")
-        os.remove(file_path)
         rumps.quit_application()
 
     def _convert_minutes_to_epoch(self, mins):
