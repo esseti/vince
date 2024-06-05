@@ -1,3 +1,3 @@
 #!/bin/bash
-rm -r /Applications/Vince.app
+rm -r -f /Applications/Vince.app
 cp -r dist/Vince.app /Applications/

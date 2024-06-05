@@ -228,8 +228,16 @@ class Vince(rumps.App):
         self.menu.add(quit_btn)
 
     def open_browser(self, sender):
+        print(self.settings.get('app_meet',""))
         if self.settings['link_opening_enabled']:
             for url in sender.urls:
+                if app_meet:= self.settings.get('app_meet',""):
+                    if url.startswith("https://meet.google.com"):
+                        cmd = fr"open -a {app_meet} "
+                        print(cmd)
+                        os.system(cmd)
+                        return
+                
                 webbrowser.open(url)
 
     @rumps.clicked("Refresh Menu")
@@ -237,8 +245,6 @@ class Vince(rumps.App):
         self.load_events()
         self.build_menu()
         self.update_exiting_events(None)
-        
-
 
 
     @rumps.timer(61)
@@ -380,7 +386,7 @@ class Vince(rumps.App):
         if element:
             hours, minutes = self._time_left(
                 element['start'], current_datetime)
-            title += f" [{element['summary'][:20]} in {hours:02d}:{minutes:02d}]"
+            title = f" [{element['summary'][:20]} in {hours:02d}:{minutes:02d}]"
             return title
         else:
             return ""
@@ -515,6 +521,7 @@ class Vince(rumps.App):
             "calendars": ["primary"],
             "link_opening_enabled": True,
             "show_menu_bar": True,
+            "app_meet":"",
             "notifications": [
                 {
                     "time_left": 5,
