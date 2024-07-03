@@ -257,18 +257,18 @@ class Vince(rumps.App):
         self.update_exiting_events(None)
 
 
-    # @rumps.timer(61)
-    # def update_exiting_events(self, _):
-    #     if not self.creds:
-    #         return
-    #     # every 60 seconds remove the events that are past.
-    #     current_datetime = datetime.now(pytz.utc)
-    #     res = []
-    #     for el in self.menu_items:
-    #         if el['end'] >= current_datetime:
-    #             res.append(el)
-    #     self.menu_items = res
-    #     self.build_menu()
+    @rumps.timer(61)
+    def update_exiting_events(self, _):
+        if not self.creds:
+            return
+        # every 60 seconds remove the events that are past.
+        current_datetime = datetime.now(pytz.utc)
+        # res = []
+        # for el in self.menu_items:
+        #     if el['end'] >= current_datetime:
+        #         res.append(el)
+        self.menu_items = self.menu_items
+        self.build_menu()
 
     def _time_left(self, event_time, current_datetime, show_seconds=False, end_time=False):
         # calcualtes time left between two datetimes, retunrs horus,minutes and optinaly seconds
@@ -449,7 +449,7 @@ class Vince(rumps.App):
                 next_events = self._get_next_events()
                 for event in next_events:
                     hours, minutes, seconds = self._time_left(
-                        event['start'], current_datetime, True)
+                        event['start'], current_datetime, show_seconds=True)
                     if hours == 0 and minutes == 1 and seconds == 0:
                         rumps.notification(
                             title="It's meeting time",
