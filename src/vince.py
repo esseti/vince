@@ -57,7 +57,7 @@ class Vince(rumps.App):
         if self.creds:
             return 
         if not self._has_internet():
-            print(f"Waiting for internet ... ")
+            logging.debug(f"Waiting for internet ... ")
             self.title = "Waiting for internet ...  "
             quit_btn = rumps.MenuItem("Quit")
             quit_btn.set_callback(self.quit)
@@ -132,7 +132,7 @@ class Vince(rumps.App):
 
                     events = events_result.get('items', [])
                 except Exception as e:
-                    print(e)
+                    logging.debug(e)
                     events = None
                 if events:
                     for event in events:
@@ -174,7 +174,7 @@ class Vince(rumps.App):
             d_events = sorted(d_events, key=lambda d: d['start'])
             self.menu_items = d_events
         except HttpError as err:
-            print(err)
+            logging.debug(err)
 
     def extract_urls(self, text):
         # # Regular expression pattern to match URLs
@@ -227,18 +227,21 @@ class Vince(rumps.App):
         quit_btn.set_callback(self.quit)
         self.menu.add(quit_btn)
 
+    def _open_browser(self, urls):
+        for url in urls:
+            if app_meet:= self.settings.get('app_meet',""):
+                if url.startswith("https://meet.google.com"):
+                    cmd = fr"open -a {app_meet} "
+                    logging.debug(cmd)
+                    os.system(cmd)
+                    return
+            
+            webbrowser.open(url)
+
     def open_browser(self, sender):
-        print(self.settings.get('app_meet',""))
+        logging.debug(self.settings.get('app_meet',""))
         if self.settings['link_opening_enabled']:
-            for url in sender.urls:
-                if app_meet:= self.settings.get('app_meet',""):
-                    if url.startswith("https://meet.google.com"):
-                        cmd = fr"open -a {app_meet} "
-                        print(cmd)
-                        os.system(cmd)
-                        return
-                
-                webbrowser.open(url)
+            self._open_browser(sender.urls)
 
     @rumps.clicked("Refresh Menu")
     def refresh_menu(self, _):
@@ -338,11 +341,13 @@ class Vince(rumps.App):
                         title += ", "
                 if current_events != self.current_events:
                     if not current_events:
+                        self.dnd(None)
                         self.slack_meeting(None)
                     else:
                         event = sorted(
                             current_events, key=lambda x: x["end"])[0]
                         self.slack_meeting(event)
+                        self.dnd(event)
 
                     self.current_events = current_events
                     # get the shortest one and update with taht data
@@ -446,18 +451,33 @@ class Vince(rumps.App):
                         )
                         if self.settings['link_opening_enabled']:
                             if event['urls']:
-                                for url in event['urls']:
-                                    webbrowser.open(url)
+                                self._open_browser(event['urls'])
 
     @rumps.clicked("Quit")
     def quit(self, _):
-        print('over')
+        logging.debug('over')
         rumps.quit_application()
 
     def _convert_minutes_to_epoch(self, mins):
         future = datetime.utcnow() + timedelta(minutes=mins+1)
         epoch = calendar.timegm(future.timetuple())
         return epoch
+
+
+    def dnd(self, event, reset=False):
+        current_datetime = datetime.now(pytz.utc)
+        if not event:
+            # reset DND
+            pars = "off"
+        else:
+            minutes = (event['end']-current_datetime).seconds // 60
+            # set DND for minutes, note that this is already 1 min before.
+            pars = minutes 
+        try:
+            logging.info(f'shortcuts run "Calm Notifications" -i {pars}')
+            os.system(f'shortcuts run "Calm Notifications" -i {pars}')
+        except Exception:
+            logging.exception("Problemi with running shorcut.")
 
     def slack_meeting(self, event, reset=False):
         slack_token = self.settings.get('slack_oauth_token',"")
