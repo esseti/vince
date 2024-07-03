@@ -205,15 +205,22 @@ class Vince(rumps.App):
                 hours, minutes = self._time_left(
                     item['start'], current_datetime)
                 menu_item = rumps.MenuItem(
-                    title=f"[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}")
+                    title=f"⏰ [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}")
+            elif item['end'] < current_datetime:
+                hours, minutes = self._time_left(
+                    current_datetime,item['end'], end_time=True)
+    
+                menu_item = rumps.MenuItem(
+                    title=f"☑️[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d} ago) {item['summary']}")
             else:
                 # if it's current, does not print time
                 menu_item = rumps.MenuItem(
-                    title=f"[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}")
+                    title=f"⭐️ [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}")
             if item['url']:
                 # if there's a meet link it adds the link and the "clicking option"
                 # otherwise the item cannot be clicked. and it look disable.
                 menu_item.urls = item['urls']
+                
                 menu_item.set_callback(self.open_browser)
             self.menu.add(menu_item)
         # add the quit button
@@ -250,20 +257,20 @@ class Vince(rumps.App):
         self.update_exiting_events(None)
 
 
-    @rumps.timer(61)
-    def update_exiting_events(self, _):
-        if not self.creds:
-            return
-        # every 60 seconds remove the events that are past.
-        current_datetime = datetime.now(pytz.utc)
-        res = []
-        for el in self.menu_items:
-            if el['end'] >= current_datetime:
-                res.append(el)
-        self.menu_items = res
-        self.build_menu()
+    # @rumps.timer(61)
+    # def update_exiting_events(self, _):
+    #     if not self.creds:
+    #         return
+    #     # every 60 seconds remove the events that are past.
+    #     current_datetime = datetime.now(pytz.utc)
+    #     res = []
+    #     for el in self.menu_items:
+    #         if el['end'] >= current_datetime:
+    #             res.append(el)
+    #     self.menu_items = res
+    #     self.build_menu()
 
-    def _time_left(self, event_time, current_datetime, show_seconds=False):
+    def _time_left(self, event_time, current_datetime, show_seconds=False, end_time=False):
         # calcualtes time left between two datetimes, retunrs horus,minutes and optinaly seconds
 
         time_left = event_time - current_datetime
@@ -274,10 +281,11 @@ class Vince(rumps.App):
         minutes, seconds = divmod(remainder, 60)
         time_left_str = f"{hours:02d}:{minutes:02d}"  # :{seconds:02d}
         if not show_seconds:
-            minutes += 1
-            if minutes == 60:
-                hours += 1
-                minutes = 0
+            if not end_time:
+                minutes += 1
+                if minutes == 60:
+                    hours += 1
+                    minutes = 0
             return hours, minutes
         else:
             return hours, minutes, seconds
