@@ -11,3 +11,4 @@ chardet
 appdirs
 requests
 bs4
+setuptools<71
