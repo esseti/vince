@@ -169,6 +169,7 @@ class Vince(rumps.App):
                             logging.debug(
                                 f"{event['summary']} | {event.get('description','')}  | {event_url}")
                             d_event = dict(id=id, start=start, end=end, summary=event["summary"], url=event_url,
+                                          attendees=attendees,
                                            urls=urls, eventType=event['eventType'], visibility=event.get('visibility', 'default'))
                             d_events.append(d_event)
             d_events = sorted(d_events, key=lambda d: d['start'])
@@ -199,9 +200,13 @@ class Vince(rumps.App):
 
         # Create a menu item for each item in the list
         current_datetime = datetime.now(pytz.utc)
+        current_is_now = False
+        previous_is_now = False
         for item in self.menu_items:
+            previous_is_now = current_is_now
+            current_is_now = False
             # if it's coming it tells how much time left
-            if item['start'] > current_datetime:
+            if item['start'] > current_datetime+timedelta(minutes=1):
                 hours, minutes = self._time_left(
                     item['start'], current_datetime)
                 menu_item = rumps.MenuItem(
@@ -211,9 +216,10 @@ class Vince(rumps.App):
                     current_datetime,item['end'], end_time=True)
     
                 menu_item = rumps.MenuItem(
-                    title=f"☑️[{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d} ago) {item['summary']}")
+                    title=f"☑️  [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d} ago) {item['summary']}")
             else:
                 # if it's current, does not print time
+                current_is_now = True
                 menu_item = rumps.MenuItem(
                     title=f"⭐️ [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}")
             if item['url']:
@@ -222,8 +228,19 @@ class Vince(rumps.App):
                 menu_item.urls = item['urls']
                 
                 menu_item.set_callback(self.open_browser)
+            else:
+                menu_item.title += " ❌" 
+                menu_item.set_callback(self.show_alert)
+            if previous_is_now and not current_is_now:
+                # last item of now
+                self.menu.add(rumps.separator)
+            if not previous_is_now and current_is_now:
+                # first item of now
+                self.menu.add(rumps.separator)
+
             self.menu.add(menu_item)
         # add the quit button
+        self.menu.add(rumps.separator)
         settings_item = rumps.MenuItem(
             "Settings", callback=self.open_settings_window)
         self.menu.add(settings_item)
@@ -244,6 +261,11 @@ class Vince(rumps.App):
                     return
             
             webbrowser.open(url)
+
+    def show_alert(self, sender):
+        rumps.alert("no link for this event")
+        
+
 
     def open_browser(self, sender):
         logging.debug(self.settings.get('app_meet',""))
@@ -474,7 +496,9 @@ class Vince(rumps.App):
 
     def dnd(self, event, reset=False):
         current_datetime = datetime.now(pytz.utc)
-        if not event:
+        # no DND if there's no attenedees (means the event is mine?)
+        if not event or len(event['attendees'])<=1:
+            logging.info(f"No DND for event with no attendees {event['attendees']}")
             # reset DND
             pars = "off"
         else:
