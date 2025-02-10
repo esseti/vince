@@ -11,6 +11,7 @@ import calendar
 import random
 import string
 import re
+from countdown_window import CountdownWindow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -20,7 +21,7 @@ from appdirs import user_data_dir
 from bs4 import BeautifulSoup
 import logging
 import urllib.request
-import time
+import AppKit
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -43,6 +44,7 @@ class Vince(rumps.App):
         self.settings = self.load_settings()
         self.current_events = []
         self.creds = None
+        self.countdown_windows = {}
 
     def _has_internet(self):
         try:
@@ -161,6 +163,8 @@ class Vince(rumps.App):
                                 if attendee.get("self", False):
                                     if attendee["responseStatus"] == "declined":
                                         add_event = False
+                        if "#NOVINCE" in event.get("description", ""):
+                            add_event = False
                         if add_event:
                             event_url = event.get("hangoutLink", "")
                             description = event.get("description", "")
@@ -171,8 +175,9 @@ class Vince(rumps.App):
                             else:
                                 urls.append(event_url)
                             logging.debug(
-                                f"{event['summary']} | {event.get('description','')}  | {event_url}"
+                                f"{event['summary']} | {event.get('description', '')}  | {event_url}"
                             )
+
                             d_event = dict(
                                 id=id,
                                 start=start,
@@ -185,7 +190,63 @@ class Vince(rumps.App):
                                 visibility=event.get("visibility", "default"),
                             )
                             d_events.append(d_event)
+            # Add an event that ends in 5 minutes and 5 seconds
+
+            if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+                now = datetime.now(pytz.utc)
+                end_time = now + timedelta(minutes=0, seconds=10)
+                d_events.append(
+                    {
+                        "id": "upcoming_end_event_1",
+                        "start": now,
+                        "end": end_time,
+                        "summary": "Event ending soon",
+                        "url": "",
+                        "attendees": [],
+                        "urls": [],
+                        "eventType": "default",
+                        "visibility": "default",
+                    }
+                )
+                start_time = end_time + timedelta(seconds=60)
+                end_time = start_time + timedelta(seconds=60)
+                d_events.append(
+                    {
+                        "id": "upcoming_end_event_2",
+                        "start": start_time,
+                        "end": end_time,
+                        "summary": "Event ending soon 2",
+                        "url": "",
+                        "attendees": [],
+                        "urls": [],
+                        "eventType": "default",
+                        "visibility": "default",
+                    }
+                )
+                start_time = end_time + timedelta(seconds=60)
+                end_time = start_time + timedelta(seconds=60)
+                d_events.append(
+                    {
+                        "id": "upcoming_end_event_3",
+                        "start": start_time,
+                        "end": end_time,
+                        "summary": "Event ending soon3",
+                        "url": "",
+                        "attendees": [],
+                        "urls": [],
+                        "eventType": "default",
+                        "visibility": "default",
+                    }
+                )
+
+            # Update settings for notifications
+            self.settings["notifications"] = [
+                {"time_left": 1, "sound": True},
+                {"time_left": 0, "sound": True},
+            ]
+
             d_events = sorted(d_events, key=lambda d: d["start"])
+
             self.menu_items = d_events
         except HttpError as err:
             logging.debug(err)
@@ -267,6 +328,9 @@ class Vince(rumps.App):
         refresh_btn = rumps.MenuItem("Refresh")
         refresh_btn.set_callback(self.refresh_menu)
         self.menu.add(refresh_btn)
+        force_btn = rumps.MenuItem("Force popup")
+        force_btn.set_callback(self.force_popup)
+        self.menu.add(force_btn)
         quit_btn = rumps.MenuItem("Quit")
         quit_btn.set_callback(self.quit)
         self.menu.add(quit_btn)
@@ -276,19 +340,36 @@ class Vince(rumps.App):
             if app_meet := self.settings.get("app_meet", ""):
                 if url.startswith("https://meet.google.com"):
                     cmd = rf"open -a {app_meet} "
+                    self._copy_link([url])
                     logging.debug(cmd)
                     os.system(cmd)
-                    return
+                    continue
 
             webbrowser.open(url)
+
+    def _copy_link(self, urls):
+        for url in urls:
+            if url.startswith("https://meet.google.com"):
+                # copy the url to clipboard
+                pb = AppKit.NSPasteboard.generalPasteboard()
+                pb.clearContents()
+                pb.setString_forType_(url, AppKit.NSPasteboardTypeString)
+        return
 
     def show_alert(self, sender):
         rumps.alert("no link for this event")
 
     def open_browser(self, sender):
-        logging.debug(self.settings.get("app_meet", ""))
-        if self.settings["link_opening_enabled"]:
-            self._open_browser(sender.urls)
+        event = AppKit.NSApplication.sharedApplication().currentEvent()
+        logging.info(event.type())
+        if event.type() == 1:
+            logging.info("left click")
+            if self.settings["link_opening_enabled"]:
+                self._open_browser(sender.urls)
+
+        elif event.type() == 3:
+            logging.info("right click")
+            self._copy_link(sender.urls)
 
     @rumps.clicked("Refresh Menu")
     def refresh_menu(self, _):
@@ -301,7 +382,7 @@ class Vince(rumps.App):
         if not self.creds:
             return
         # every 60 seconds remove the events that are past.
-        current_datetime = datetime.now(pytz.utc)
+
         # res = []
         # for el in self.menu_items:
         #     if el['end'] >= current_datetime:
@@ -367,6 +448,7 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def update_bar_str(self, _):
+        MAX_LENGHT = 200
         if not self.creds:
             return
         if self.settings["show_menu_bar"]:
@@ -384,14 +466,14 @@ class Vince(rumps.App):
                         event["end"], current_datetime, True
                     )
                     summary = event["summary"]
-                    if not event or len(event["attendees"]) <= 1:
-                        summary = "👤"
+                    # if not event or len(event["attendees"]) <= 1:
+                    #     summary = "👤"
                     if hours > 0 or minutes > 15:
                         title += (
-                            f" {str_truncate(summary,20)}: {hours:02d}:{minutes:02d}"
+                            f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}"
                         )
                     else:
-                        title += f" {str_truncate(summary,20)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
+                        title += f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
                     i_current_events += 1
                     # separated with comma if more than one
                     if i_current_events < len_current_events:
@@ -414,15 +496,18 @@ class Vince(rumps.App):
                     title += " ["
                 for event in next_events:
                     if not event or len(event["attendees"]) <= 1:
-                        title += "👤 " 
+                        title += " 👤"
                     hours, minutes = self._time_left(event["start"], current_datetime)
-                    title += f"{str_truncate(event['summary'],20)}: in {hours:02d}:{minutes:02d}"
+                    title += f"{str_truncate(event['summary'], 20)}: in {hours:02d}:{minutes:02d}"
                     i_next_events += 1
                     if i_next_events < len_next_events:
                         title += ", "
                 if len_next_events:
                     title += "]"
-                self.title = title
+                if len(title) > MAX_LENGHT:
+                    self.title = f"..."
+                else:
+                    self.title = title
             else:
                 self.title = f""
         else:
@@ -451,7 +536,7 @@ class Vince(rumps.App):
             return ""
 
     @rumps.timer(1)
-    def send_notification_(self, _):
+    def send_notification(self, _):
         if not self.creds:
             return
         if self.settings["notifications"]:
@@ -477,7 +562,12 @@ class Vince(rumps.App):
                                 message=f"I said {minute_notification} mins left",
                                 sound=notification["sound"],
                             )
-
+                            if event["id"] not in self.countdown_windows.keys():
+                                self.countdown_windows[event["id"]] = CountdownWindow(
+                                    event, parent=self
+                                )
+                                self.countdown_windows[event["id"]].start_countdown()
+                                self.countdown_windows[event["id"]].show()
                         # and when it's over
                     if hours == 0 and minutes == 0 and seconds == 0:
                         rumps.notification(
@@ -486,6 +576,57 @@ class Vince(rumps.App):
                             message="It's over",
                             sound=True,
                         )
+                        if event["id"] not in self.countdown_windows.keys():
+                            self.countdown_windows[event["id"]] = CountdownWindow(
+                                event, parent=self
+                            )
+                            self.countdown_windows[event["id"]].start_countdown()
+                            self.countdown_windows[event["id"]].show()
+                for event in self.menu_items:
+                    hours, minutes, seconds = self._time_left(
+                        event["start"], current_datetime, show_seconds=True
+                    )
+
+                    if hours == 0 and minutes == 1 and seconds == 0:
+                        self.countdown_windows[event["id"]] = CountdownWindow(
+                            event, parent=self
+                        )
+                        self.countdown_windows[event["id"]].start_countdown()
+                        self.countdown_windows[event["id"]].show()
+
+    def force_popup(self, _):
+        current_events = self._get_current_events()
+        for event in current_events:
+            if event["id"] not in self.countdown_windows.keys():
+                self.countdown_windows[event["id"]] = CountdownWindow(
+                    event, parent=self
+                )
+                self.countdown_windows[event["id"]].start_countdown()
+            self.countdown_windows[event["id"]].show()
+
+    def arrange_countdown_windows(self):
+        windows = sorted(
+            [w for w in self.countdown_windows.values()],
+            key=lambda x: x.event["id"],
+        )
+        screen = AppKit.NSScreen.mainScreen()
+        screen_frame = screen.frame()
+        window_height = 50.0
+        vertical_spacing = window_height + 15.0
+        y_position = screen_frame.size.height - vertical_spacing
+
+        for window in windows:
+            if window.window.isVisible():
+                frame = window.window.frame()
+                frame.origin.y = y_position
+                y_position -= vertical_spacing
+                window.window.setFrame_display_(frame, True)
+
+    @rumps.timer(1)
+    def update_window_positions(self, _):
+        self.arrange_countdown_windows()
+
+    # for window in self.countdown_windows.values():
 
     @rumps.timer(1)
     def send_and_open_link(self, _):
@@ -531,7 +672,7 @@ class Vince(rumps.App):
         else:
             minutes = (event["end"] - current_datetime).seconds // 60
             # set DND for minutes, note that this is already 1 min before.
-            pars = minutes
+            pars = minutes + 1
         try:
             logging.info(f'shortcuts run "Calm Notifications" -i {pars}')
             os.system(f'shortcuts run "Calm Notifications" -i {pars}')
@@ -667,5 +808,16 @@ class Vince(rumps.App):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--debug", action="store_true", help="Set logger to debug level"
+    )
+    args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     app = Vince()
     app.run()

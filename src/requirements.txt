@@ -5,10 +5,12 @@ google-auth-httplib2
 google-auth-oauthlib
 pytz
 py2app
-py2app[setuptools]
+# py2app[setuptools]
 requests
 chardet
 appdirs
 requests
 bs4
 setuptools<71
+#AppKit
+PyObjC-core
