@@ -163,3 +163,4 @@ cython_debug/
 src/token.json
 src/*.json
 .vscode
+src/Vince.zip
