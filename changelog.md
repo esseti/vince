@@ -1,4 +1,7 @@
 https://github.com/jaredks/rumps/issues/200#issuecomment-1475380684
+[2.0.0] 2025-02-17
+
+- Adding popup that shows a timer. It's shown +1:00 before the meeting starts in pink, then green until 5:00 minutes left to the end of the meeting, then yellow, orange and red whe time is over. If you close the popup you can re-open it from the menu bar (only if the meeting is still going on).
 
 [1.2.0] 2024-06-05
 
