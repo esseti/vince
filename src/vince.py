@@ -44,7 +44,7 @@ class Vince(rumps.App):
         self.settings = self.load_settings()
         self.current_events = []
         self.creds = None
-        self.countdown_windows = {}
+        self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
 
     def _has_internet(self):
         try:
@@ -208,7 +208,7 @@ class Vince(rumps.App):
                         "visibility": "default",
                     }
                 )
-                start_time = end_time + timedelta(seconds=60)
+                start_time = end_time + timedelta(seconds=10)
                 end_time = start_time + timedelta(seconds=60)
                 d_events.append(
                     {
@@ -562,12 +562,6 @@ class Vince(rumps.App):
                                 message=f"I said {minute_notification} mins left",
                                 sound=notification["sound"],
                             )
-                            if event["id"] not in self.countdown_windows.keys():
-                                self.countdown_windows[event["id"]] = CountdownWindow(
-                                    event, parent=self
-                                )
-                                self.countdown_windows[event["id"]].start_countdown()
-                                self.countdown_windows[event["id"]].show()
                         # and when it's over
                     if hours == 0 and minutes == 0 and seconds == 0:
                         rumps.notification(
@@ -576,55 +570,57 @@ class Vince(rumps.App):
                             message="It's over",
                             sound=True,
                         )
-                        if event["id"] not in self.countdown_windows.keys():
-                            self.countdown_windows[event["id"]] = CountdownWindow(
-                                event, parent=self
-                            )
-                            self.countdown_windows[event["id"]].start_countdown()
-                            self.countdown_windows[event["id"]].show()
-                for event in self.menu_items:
-                    hours, minutes, seconds = self._time_left(
-                        event["start"], current_datetime, show_seconds=True
-                    )
 
-                    if hours == 0 and minutes == 1 and seconds == 0:
-                        self.countdown_windows[event["id"]] = CountdownWindow(
-                            event, parent=self
-                        )
-                        self.countdown_windows[event["id"]].start_countdown()
-                        self.countdown_windows[event["id"]].show()
+    @rumps.timer(1)
+    def popup_for_upcoming(self, _):
+        current_datetime = datetime.now(pytz.utc)
+        for event in self.menu_items:
+            hours, minutes, seconds = self._time_left(
+                event["start"], current_datetime, show_seconds=True
+            )
+            if hours == 0 and minutes == 1 and seconds == 0:
+                self.countdown_windows[event["id"]] = {
+                    "window": CountdownWindow(event, parent=self),
+                    "closed": False,
+                }
+                self.countdown_windows[event["id"]]["window"].start_countdown()
+                self.countdown_windows[event["id"]]["window"].show()
 
     def force_popup(self, _):
         current_events = self._get_current_events()
         for event in current_events:
-            if event["id"] not in self.countdown_windows.keys():
-                self.countdown_windows[event["id"]] = CountdownWindow(
-                    event, parent=self
-                )
-                self.countdown_windows[event["id"]].start_countdown()
-            self.countdown_windows[event["id"]].show()
+            if event["id"] in self.countdown_windows.keys():
+                self.countdown_windows[event["id"]]["window"].close()
 
-    def arrange_countdown_windows(self):
-        windows = sorted(
-            [w for w in self.countdown_windows.values()],
-            key=lambda x: x.event["id"],
-        )
-        screen = AppKit.NSScreen.mainScreen()
-        screen_frame = screen.frame()
-        window_height = 50.0
-        vertical_spacing = window_height + 15.0
-        y_position = screen_frame.size.height - vertical_spacing
+            self.countdown_windows[event["id"]] = {
+                "window": CountdownWindow(event, parent=self),
+                "closed": False,
+            }
+            self.countdown_windows[event["id"]]["window"].start_countdown()
+            self.countdown_windows[event["id"]]["closed"] = False
+            self.countdown_windows[event["id"]]["window"].show()
 
-        for window in windows:
-            if window.window.isVisible():
-                frame = window.window.frame()
-                frame.origin.y = y_position
-                y_position -= vertical_spacing
-                window.window.setFrame_display_(frame, True)
+    # def arrange_countdown_windows(self):
+    #     windows = sorted(
+    #         [w["window"] for w in self.countdown_windows.values()],
+    #         key=lambda x: x.event["id"],
+    #     )
+    #     screen = AppKit.NSScreen.mainScreen()
+    #     screen_frame = screen.frame()
+    #     window_height = 50.0
+    #     vertical_spacing = window_height + 15.0
+    #     y_position = screen_frame.size.height - vertical_spacing
 
-    @rumps.timer(1)
-    def update_window_positions(self, _):
-        self.arrange_countdown_windows()
+    #     for window in windows:
+    #         if window.window.isVisible():
+    #             frame = window.window.frame()
+    #             frame.origin.y = y_position
+    #             y_position -= vertical_spacing
+    #             window.window.setFrame_display_(frame, True)
+
+    # @rumps.timer(1)
+    # def update_window_positions(self, _):
+    #     self.arrange_countdown_windows()
 
     # for window in self.countdown_windows.values():
 

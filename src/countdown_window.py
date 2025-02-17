@@ -176,21 +176,25 @@ class CountdownWindow:
         # Update background color based on time
         if sign == "+":
             color = AppKit.NSColor.colorWithRed_green_blue_alpha_(
-                0.5, 0.0, 0.5, 0.95
-            )  # Green
+                155 / 255, 89 / 255, 182 / 255, 0.95
+            )  # purple
         elif total_seconds < 0:
             # Red for expired
             color = AppKit.NSColor.colorWithRed_green_blue_alpha_(
-                0.9, 0.2, 0.2, 0.95
+                231 / 255, 76 / 255, 60 / 255, 1.0
             )  # Bright red
         elif total_seconds <= 300 and total_seconds > 60:  # Between 1 and 5 minutes
             color = AppKit.NSColor.colorWithRed_green_blue_alpha_(
-                241 / 255, 196 / 255, 15 / 255, 0.95
+                241 / 255, 196 / 255, 15 / 255, 1.0
             )  # Yellow
+        elif total_seconds <= 60 and total_seconds > 0:  # Less than 1 minute
+            color = AppKit.NSColor.colorWithRed_green_blue_alpha_(
+                230 / 255, 126 / 255, 34 / 255, 1.0
+            )  # Orange
         else:  # More than 5 minutes
             color = AppKit.NSColor.colorWithRed_green_blue_alpha_(
-                46 / 255, 204 / 255, 113 / 255, 0.95
-            )
+                46 / 255, 204 / 255, 113 / 255, 1.0
+            )  # Green
 
         if not sign:
             sign = "-" if total_seconds < 0 else ""
@@ -209,4 +213,4 @@ class CountdownWindow:
         self.window.close()
         if self.parent and self.event and "id" in self.event:
             if self.event["id"] in self.parent.countdown_windows:
-                del self.parent.countdown_windows[self.event["id"]]
+                self.parent.countdown_windows[self.event["id"]]["closed"] = True
