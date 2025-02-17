@@ -35,6 +35,11 @@ www.stefanotranquillini.com/vince
 - Seamless Google Calendar Integration:
   Vince seamlessly connects to your Google Calendar, providing real-time access to your events and appointments. Stay updated and never miss a beat.
 
+- Integrated Timer:
+  A popup displays the time remaining in the meeting. The color changes from purple to green, yellow, orange, and red depending on the time left.
+![image](https://github.com/user-attachments/assets/ca9f6b55-1ab3-460a-bc44-3daa71149b39)
+
+
 #### NOTE
 
 The name in honor of vince lombardi and his attitute on being on time.
