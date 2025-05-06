@@ -42,7 +42,7 @@ class CountdownWindow:
         # Make window movable by dragging anywhere
         self.window.setMovableByWindowBackground_(True)
 
-        self.paretn = parent
+        self.parent = parent
 
         # Set window properties for transparency and rounded corners
         self.window.setBackgroundColor_(AppKit.NSColor.clearColor())
@@ -210,7 +210,10 @@ class CountdownWindow:
     def close(self):
         if self.timer:
             self.timer.invalidate()
-        self.window.close()
+            self.timer = None
+        if self.window:
+            self.window.close()
+            self.window = None
         if self.parent and self.event and "id" in self.event:
             if self.event["id"] in self.parent.countdown_windows:
                 self.parent.countdown_windows[self.event["id"]]["closed"] = True

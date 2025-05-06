@@ -589,9 +589,6 @@ class Vince(rumps.App):
     def force_popup(self, _):
         current_events = self._get_current_events()
         for event in current_events:
-            if event["id"] in self.countdown_windows.keys():
-                self.countdown_windows[event["id"]]["window"].close()
-
             self.countdown_windows[event["id"]] = {
                 "window": CountdownWindow(event, parent=self),
                 "closed": False,
