@@ -11,6 +11,7 @@ import calendar
 import random
 import string
 import re
+import warnings
 from countdown_window import CountdownWindow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -22,6 +23,12 @@ from bs4 import BeautifulSoup
 import logging
 import urllib.request
 import AppKit
+
+# Suppress PyObjC pointer warnings
+warnings.filterwarnings(
+    "ignore", category=RuntimeWarning, message="PyObjCPointer created:.*"
+)
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -589,6 +596,8 @@ class Vince(rumps.App):
     def force_popup(self, _):
         current_events = self._get_current_events()
         for event in current_events:
+            if event["id"] in self.countdown_windows:
+                self.countdown_windows[event["id"]]["window"].close()
             self.countdown_windows[event["id"]] = {
                 "window": CountdownWindow(event, parent=self),
                 "closed": False,

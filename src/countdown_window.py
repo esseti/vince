@@ -212,7 +212,7 @@ class CountdownWindow:
             self.timer.invalidate()
             self.timer = None
         if self.window:
-            self.window.close()
+            self.window.orderOut_(None)
             self.window = None
         if self.parent and self.event and "id" in self.event:
             if self.event["id"] in self.parent.countdown_windows:
