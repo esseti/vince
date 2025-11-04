@@ -6,6 +6,7 @@ Usage:
 """
 
 from setuptools import setup
+import os
 
 APP = ["vince.py"]
 DATA_FILES = [("", ["credentials.json", "icon.png", "menu-icon.png"])]
@@ -15,7 +16,10 @@ OPTIONS = {
     "plist": {
         "LSUIElement": True,
         "CFBundleName": "Vince",
-        "CFBundleShortVersionString": "2.0",
+        "CFBundleShortVersionString": os.popen("git describe --tags --always")
+        .read()
+        .strip()
+        or "",
     },
     "iconfile": "icon.png",
 }
