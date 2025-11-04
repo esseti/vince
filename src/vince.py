@@ -11,6 +11,7 @@ import calendar
 import random
 import string
 import re
+import warnings
 from countdown_window import CountdownWindow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -22,6 +23,12 @@ from bs4 import BeautifulSoup
 import logging
 import urllib.request
 import AppKit
+
+# Suppress PyObjC pointer warnings
+warnings.filterwarnings(
+    "ignore", category=RuntimeWarning, message="PyObjCPointer created:.*"
+)
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -157,10 +164,11 @@ class Vince(rumps.App):
                             continue
                         add_event = True
                         # skip declined events.
-
+                        response_status = ""
                         if attendees := event.get("attendees", []):
                             for attendee in attendees:
                                 if attendee.get("self", False):
+                                    response_status = attendee.get("responseStatus", "")
                                     if attendee["responseStatus"] == "declined":
                                         add_event = False
                         if "#NOVINCE" in event.get("description", ""):
@@ -188,6 +196,7 @@ class Vince(rumps.App):
                                 urls=urls,
                                 eventType=event["eventType"],
                                 visibility=event.get("visibility", "default"),
+                                attendee_response=response_status,
                             )
                             d_events.append(d_event)
             # Add an event that ends in 5 minutes and 5 seconds
@@ -206,6 +215,7 @@ class Vince(rumps.App):
                         "urls": [],
                         "eventType": "default",
                         "visibility": "default",
+                        "attendee_response": "accepted",
                     }
                 )
                 start_time = end_time + timedelta(seconds=10)
@@ -221,6 +231,7 @@ class Vince(rumps.App):
                         "urls": [],
                         "eventType": "default",
                         "visibility": "default",
+                        "attendee_response": "accepted",
                     }
                 )
                 start_time = end_time + timedelta(seconds=60)
@@ -236,6 +247,7 @@ class Vince(rumps.App):
                         "urls": [],
                         "eventType": "default",
                         "visibility": "default",
+                        "attendee_response": "accepted",
                     }
                 )
 
@@ -277,6 +289,7 @@ class Vince(rumps.App):
         current_is_now = False
         previous_is_now = False
         for item in self.menu_items:
+            print(item)
             previous_is_now = current_is_now
             current_is_now = False
             extra = ""
@@ -290,8 +303,11 @@ class Vince(rumps.App):
             # if it's coming it tells how much time left
             if item["start"] > current_datetime + timedelta(minutes=1):
                 hours, minutes = self._time_left(item["start"], current_datetime)
+                icon = "⏰"
+                if item.get("attendee_response", "") == "tentative":
+                    icon = "❓"
                 menu_item = rumps.MenuItem(
-                    title=f"⏰ {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}"
+                    title=f"{icon} {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}"
                 )
             elif item["end"] < current_datetime:
                 hours, minutes = self._time_left(
@@ -435,6 +451,8 @@ class Vince(rumps.App):
         start_time = None
         if self.menu_items:
             for item in self.menu_items:
+                if item.get("attendee_response", "") == "tentative":
+                    continue
                 if item["start"] >= current_datetime:
                     if not start_time:
                         start_time = item["start"]
@@ -462,6 +480,8 @@ class Vince(rumps.App):
                 i_current_events = 0
                 # first all the current, with time left
                 for event in current_events:
+                    if event.get("attendee_response", "") == "tentative":
+                        continue
                     hours, minutes, seconds = self._time_left(
                         event["end"], current_datetime, True
                     )
@@ -589,9 +609,8 @@ class Vince(rumps.App):
     def force_popup(self, _):
         current_events = self._get_current_events()
         for event in current_events:
-            if event["id"] in self.countdown_windows.keys():
+            if event["id"] in self.countdown_windows:
                 self.countdown_windows[event["id"]]["window"].close()
-
             self.countdown_windows[event["id"]] = {
                 "window": CountdownWindow(event, parent=self),
                 "closed": False,
