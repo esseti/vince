@@ -170,8 +170,11 @@ class CountdownWindow:
         )
 
         total_seconds = int(time_diff.total_seconds())
-        minutes = abs(total_seconds) // 60
-        seconds = abs(total_seconds) % 60
+
+        abs_seconds = abs(total_seconds)
+        hours = abs_seconds // 3600
+        minutes = (abs_seconds % 3600) // 60
+        seconds = abs_seconds % 60
 
         # Update background color based on time
         if sign == "+":
@@ -198,7 +201,10 @@ class CountdownWindow:
 
         if not sign:
             sign = "-" if total_seconds < 0 else ""
-        countdown_text = f"{sign}{minutes:01d}:{seconds:02d}"
+        if hours:
+            countdown_text = f"{sign}{hours:d}:{minutes:02d}:{seconds:02d}"
+        else:
+            countdown_text = f"{sign}{minutes:01d}:{seconds:02d}"
         self.label.setStringValue_(countdown_text)
 
         self.visual_effect.layer().setBackgroundColor_(color.CGColor())
