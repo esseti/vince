@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: src/requirements.txt
+
+      - name: Install dependencies
+        working-directory: src
+        run: pip install -r requirements.txt
+
+      - name: Reconstruct credentials.json
+        working-directory: src
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+
+      - name: Build app
+        working-directory: src
+        run: |
+          rm -rf build/ dist/
+          python setup.py py2app --includes imp
+
+      - name: Zip app
+        run: cd src/dist && zip -r ../../VInce.zip VInce.app
+
+      - name: Install git-cliff
+        run: |
+          curl -sSfL \
+            https://github.com/orhun/git-cliff/releases/download/v2.4.0/git-cliff-2.4.0-aarch64-apple-darwin.tar.gz \
+            | tar -xz --strip-components=1 -C /usr/local/bin
+
+      - name: Generate release notes
+        run: git cliff --current --output RELEASE_NOTES.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Vince ${{ github.ref_name }}"
+          body_path: RELEASE_NOTES.md
+          files: VInce.zip

@@ -23,6 +23,27 @@ from bs4 import BeautifulSoup
 import logging
 import urllib.request
 import AppKit
+import threading
+import plistlib
+import pathlib as _pathlib
+
+
+def _get_bundle_version() -> str:
+    try:
+        exe = _pathlib.Path(__import__("sys").executable).resolve()
+        for parent in exe.parents:
+            plist = parent / "Info.plist"
+            if plist.exists():
+                with open(plist, "rb") as f:
+                    data = plistlib.load(f)
+                return data.get("CFBundleShortVersionString", "dev")
+    except Exception:
+        pass
+    return "dev"
+
+
+__version__ = _get_bundle_version()
+
 
 # Suppress PyObjC pointer warnings
 warnings.filterwarnings(
@@ -52,6 +73,41 @@ class Vince(rumps.App):
         self.current_events = []
         self.creds = None
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
+        self._check_for_update()
+
+    def _check_for_update(self):
+        def _worker():
+            import time
+            time.sleep(30)
+            try:
+                resp = requests.get(
+                    "https://api.github.com/repos/esseti/vince/releases/latest",
+                    timeout=10,
+                    headers={"Accept": "application/vnd.github+json"},
+                )
+                if resp.status_code != 200:
+                    return
+                latest = resp.json().get("tag_name", "")
+                if not latest or latest == __version__:
+                    return
+
+                def _parse(v):
+                    try:
+                        return tuple(int(x) for x in v.lstrip("v").split("."))
+                    except Exception:
+                        return (0,)
+
+                if _parse(latest) > _parse(__version__):
+                    rumps.notification(
+                        title="Vince update available",
+                        subtitle=f"Version {latest} is out",
+                        message=f"You have {__version__}. Download at github.com/esseti/vince",
+                        sound=False,
+                    )
+            except Exception as e:
+                logging.debug(f"Update check failed: {e}")
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _has_internet(self):
         try:
@@ -451,8 +507,6 @@ class Vince(rumps.App):
         start_time = None
         if self.menu_items:
             for item in self.menu_items:
-                if item.get("attendee_response", "") == "tentative":
-                    continue
                 if item["start"] >= current_datetime:
                     if not start_time:
                         start_time = item["start"]
@@ -480,12 +534,13 @@ class Vince(rumps.App):
                 i_current_events = 0
                 # first all the current, with time left
                 for event in current_events:
+                    prefix = ""
                     if event.get("attendee_response", "") == "tentative":
-                        continue
+                        prefix = "❓ "
                     hours, minutes, seconds = self._time_left(
                         event["end"], current_datetime, True
                     )
-                    summary = event["summary"]
+                    summary = prefix + event["summary"]
                     # if not event or len(event["attendees"]) <= 1:
                     #     summary = "👤"
                     if hours > 0 or minutes > 15:
@@ -517,6 +572,8 @@ class Vince(rumps.App):
                 for event in next_events:
                     if not event or len(event["attendees"]) <= 1:
                         title += " 👤"
+                    if event.get("attendee_response", "") == "tentative":
+                        title += "❓ "
                     hours, minutes = self._time_left(event["start"], current_datetime)
                     title += f"{str_truncate(event['summary'], 20)}: in {hours:02d}:{minutes:02d}"
                     i_next_events += 1
@@ -665,6 +722,8 @@ class Vince(rumps.App):
                             sound=True,
                         )
                         if self.settings["link_opening_enabled"]:
+                            if event.get("attendee_response", "") == "tentative":
+                                continue
                             if event["urls"]:
                                 self._open_browser(event["urls"])
 

@@ -1,16 +1,134 @@
-https://github.com/jaredks/rumps/issues/200#issuecomment-1475380684
-[2.0.0] 2025-02-17
 
-- Adding popup that shows a timer. It's shown +1:00 before the meeting starts in pink, then green until 5:00 minutes left to the end of the meeting, then yellow, orange and red whe time is over. If you close the popup you can re-open it from the menu bar (only if the meeting is still going on).
+## Unreleased
 
-[1.2.0] 2024-06-05
+### Other
+- Merge tag '2.1.0' into develop
 
-- Added support for chrome meet app to open the meet app link (pedro request).
-  To enable this feature, follow these steps:
+tentative meetings
+- Addin hours to the popup
+- Merge branch 'main' into develop
 
-  1. Locate the Google Meet app on your system. It's typically found at this path: `/Users/YOUR_USER/Applications/Chrome\ Apps.localized/Google\ Meet.app`.
-  2. Copy this path and replace any single backslash `\` with a double backslash `\\`. The modified path should look like this: `/Users/YOUR_USER/Applications/Chrome\\ Apps.localized/Google\\ Meet.app`.
-  3. Paste this modified path into the settings under the `app_meet` field.
-  4. Once done, any Google Meet link will trigger the app to open.
+## [2.1.0] - 2025-11-04
 
-  Please note a known limitation: The app does not automatically open the meeting link. You will need to manually enter the meeting ID or select the meeting from your event list on the right side of the app.
+### Bug Fixes
+- Fixing setup.py
+
+
+### Features
+- Add tentative event status indicator and filtering
+
+
+### Other
+- Update README.md
+- Should fix force popup
+- This should really solve the popup problem
+- Merge tag '2.0.0' into develop
+
+timer popup
+- Merge branch 'release/2.1.0'
+
+## [2.0.0] - 2025-02-17
+
+### Bug Fixes
+- Fix bug
+
+
+### Other
+- Merge tag '1.2.0' into develop
+
+add support for meet app of chrome
+- Dnd implementation with the shortcut
+- Showing all events but adding icon to show past present and future
+- DND if the event is with other people
+- DND if the event is with other people
+- I can't recall but works :D
+- Adding the popup window with teh counter
+- Adding window for popup on time left
+- Chengelog
+- Util to build release
+- Util to build release
+- Merge branch 'release/2.0.0'
+
+## [1.2.0] - 2024-06-05
+
+### Other
+- Merge tag '1.0.0' into develop
+
+Version 1.0.0
+
+s
+- Bump version in setup
+- Better handling of missing conection
+- Adding new setting to open mac chrome app
+- Merge branch 'release/1.2.0'
+
+## [1.0.0] - 2024-03-21
+
+### Bug Fixes
+- Fix notification
+- Fix regexp
+
+
+### Other
+- Merge tag '0.0.2' into develop
+
+slack integration & better UX
+-  avoid slack on private events
+- Extract data from the description
+- More precise notifications
+- Varius fixes
+- Commands
+- Add seetings for menubar
+- Add settings for notification sounds
+- Open all links in description
+- Enabling multiple link opening
+- Changing changelog before creating official version
+- 1.0.0
+- Merge branch 'release/1.0.0'
+
+## [0.0.3] - 2023-07-31
+
+### Bug Fixes
+- Fix one thing
+- Fix changelog and new readme
+
+
+### Other
+- Adding slack status update and DND during meetings
+- Adding slack status update and DND during meetings
+- Add icon template
+- Add icon template
+- Cheange status automatically
+- Merge branch 'feature/slack_dnd_integration' into develop
+- Merge branch 'release/0.0.2'
+
+## [0.0.2] - 2023-07-20
+
+### Bug Fixes
+- Fixes in presentation
+
+
+### Other
+- First commit
+- Initial commit
+- Create README.md
+- Update README.md
+- Merge branch 'main' into develop
+- Useless file
+- Changelog
+- Setup
+- Merge branch 'release/0.0.1'
+- Merge tag '0.0.1' into develop
+
+first
+- Changelog
+- Changelog
+- Menu item
+- Readme
+- Add settigns
+- Compliance
+- Merge branch 'main' into develop
+- Removing decliend event and fix when there are daily events
+- Google verification
+
+

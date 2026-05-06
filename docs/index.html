@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vince — macOS Menu Bar Calendar</title>
+  <style>
+    :root {
+      --accent: #007AFF;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: var(--card);
+      border-bottom: 1px solid #d2d2d7;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+    header h1 { font-size: 2.5rem; font-weight: 700; }
+    header p.tagline { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
+    .hero {
+      max-width: 680px;
+      margin: 3rem auto;
+      padding: 0 1rem;
+      text-align: center;
+    }
+    .hero p { font-size: 1.15rem; color: var(--muted); margin-bottom: 2rem; }
+    .download-btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 0.85rem 2.2rem;
+      border-radius: 980px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .download-btn:hover { background: #0056cc; }
+    .meta {
+      display: block;
+      margin-top: 0.75rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+    .features {
+      max-width: 680px;
+      margin: 0 auto 2rem;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .feature-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid #d2d2d7;
+    }
+    .feature-card h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+    .feature-card p { font-size: 0.9rem; color: var(--muted); }
+    .changelog {
+      max-width: 680px;
+      margin: 2rem auto 4rem;
+      padding: 0 1rem;
+    }
+    .changelog h2 { font-size: 1.4rem; margin-bottom: 1.25rem; }
+    .changelog-body {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      border: 1px solid #d2d2d7;
+    }
+    .changelog-body h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e5e5ea; padding-bottom: 0.25rem; }
+    .changelog-body h2:first-child { margin-top: 0; }
+    .changelog-body h3 { font-size: 0.95rem; color: var(--muted); margin-top: 0.75rem; margin-bottom: 0.25rem; }
+    .changelog-body ul { padding-left: 1.5rem; }
+    .changelog-body li { margin-bottom: 0.2rem; font-size: 0.95rem; }
+    .changelog-body a { color: var(--accent); text-decoration: none; }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      border-top: 1px solid #d2d2d7;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Vince</h1>
+  <p class="tagline">Early is on time. On time is late. Late is unacceptable.</p>
+</header>
+
+<section class="hero">
+  <p>macOS menu bar app that shows your Google Calendar events, counts down to your next meeting, and auto-opens video links so you're never late.</p>
+  <a class="download-btn"
+     href="https://github.com/esseti/vince/releases/download/{{VERSION}}/VInce.zip">
+    Download Vince {{VERSION}}
+  </a>
+  <span class="meta">macOS 12+ &bull; Released {{RELEASE_DATE}} &bull; Free &amp; open source</span>
+</section>
+
+<section class="features">
+  <div class="feature-card">
+    <h3>Menu bar at a glance</h3>
+    <p>Current event + live countdown shown directly in your menu bar. No extra windows.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Auto-open meetings</h3>
+    <p>One minute before start, Vince opens the Meet/Zoom/Teams link automatically.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Meeting timer popup</h3>
+    <p>Color-coded timer (green → yellow → red) shows how much time is left in the current meeting.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Slack DND sync</h3>
+    <p>Sets your Slack status to Do Not Disturb while you're in a meeting.</p>
+  </div>
+</section>
+
+<section class="changelog">
+  <h2>Changelog</h2>
+  <div class="changelog-body">
+    {{CHANGELOG_HTML}}
+  </div>
+</section>
+
+<footer>
+  <p>
+    Open source &mdash;
+    <a href="https://github.com/esseti/vince">esseti/vince on GitHub</a>
+    &mdash; GNU GPL 3
+  </p>
+</footer>
+
+</body>
+</html>
