@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Vince — A calendar in your menu bar.</title>
+    <title>Vince — Early is on time. On time is late. Late is unacceptable.</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -564,6 +564,18 @@
       .cl-list a {
         color: var(--accent);
       }
+      .cl-more {
+        margin-top: 20px;
+        font-size: 13.5px;
+      }
+      .cl-more a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .cl-more a:hover {
+        text-decoration: underline;
+      }
 
       /* ============ CTA BAND ============ */
       .cta-band {
@@ -643,7 +655,8 @@
           <span>Version {{VERSION}} · for macOS</span>
         </div>
         <h1 class="display">
-          Your calendar, <span class="accent">in the menu bar.</span>
+          "Early is on time. <span class="accent"></span>On time is late.</span>."
+          <br><small><i>Vince Lombardi</i></small>
         </h1>
         <p class="lede">
           Vince is a tiny macOS app that shows your next Google Calendar meeting
@@ -671,8 +684,7 @@
         <!-- Hero video embed -->
         <div class="hero-shot">
           <iframe
-            width="560"
-            height="315"
+            style="width:100%;height:100%;display:block;"
             src="https://www.youtube.com/embed/jvb6BiCj1X8?si=B71oVarz74NoojQU"
             title="YouTube video player"
             frameborder="0"
