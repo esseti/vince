@@ -8,8 +8,6 @@ import os
 import json
 import requests
 import calendar
-import random
-import string
 import re
 import warnings
 from countdown_window import CountdownWindow
@@ -60,6 +58,355 @@ def str_truncate(string, width):
     if len(string) > width:
         string = string[: width - 3] + "..."
     return string
+
+
+class _SettingsActionHandler(AppKit.NSObject):
+    """Thin NSObject that forwards button actions to SettingsWindowController."""
+
+    def init(self):
+        self = super().init()
+        if self is None:
+            return None
+        self.controller = None
+        return self
+
+    def addNotificationRow_(self, sender):
+        self.controller.add_notification_row(5, False)
+
+    def removeNotificationRow_(self, sender):
+        self.controller.remove_notification_row(sender.tag())
+
+    def browseApp_(self, sender):
+        self.controller.browse_app()
+
+    def save_(self, sender):
+        self.controller.save()
+
+    def cancel_(self, sender):
+        self.controller.cancel()
+
+
+class SettingsWindowController:
+    """Native macOS settings window with form controls."""
+
+    def __init__(self, settings, on_save):
+        self._on_save = on_save
+        self._settings = dict(settings)
+        self._notification_rows = []
+        self._handler = _SettingsActionHandler.alloc().init()
+        self._handler.controller = self
+        self._build_window()
+
+    # ------------------------------------------------------------------
+    # Widget helpers
+    # ------------------------------------------------------------------
+
+    def _label(self, text, frame, *, bold=False, small=False, secondary=False):
+        v = AppKit.NSTextField.alloc().initWithFrame_(frame)
+        v.setStringValue_(text)
+        v.setBezeled_(False)
+        v.setDrawsBackground_(False)
+        v.setEditable_(False)
+        v.setSelectable_(False)
+        size = 11 if small else 13
+        v.setFont_(AppKit.NSFont.boldSystemFontOfSize_(size) if bold else AppKit.NSFont.systemFontOfSize_(size))
+        if secondary:
+            v.setTextColor_(AppKit.NSColor.secondaryLabelColor())
+        return v
+
+    def _field(self, text, frame):
+        v = AppKit.NSTextField.alloc().initWithFrame_(frame)
+        v.setStringValue_(text)
+        v.setEditable_(True)
+        v.setFont_(AppKit.NSFont.systemFontOfSize_(13))
+        return v
+
+    def _checkbox(self, title, checked, frame):
+        v = AppKit.NSButton.alloc().initWithFrame_(frame)
+        v.setButtonType_(AppKit.NSSwitchButton)
+        v.setTitle_(title)
+        v.setState_(AppKit.NSControlStateValueOn if checked else AppKit.NSControlStateValueOff)
+        v.setFont_(AppKit.NSFont.systemFontOfSize_(13))
+        return v
+
+    def _separator(self, y):
+        box = AppKit.NSBox.alloc().initWithFrame_(((0, y), (self._W, 1)))
+        box.setBoxType_(AppKit.NSBoxSeparator)
+        return box
+
+    def _section_header(self, text, y):
+        m = self._margin
+        v = self._label(text.upper(), ((m, y), (self._W - 2 * m, 15)), bold=True, small=True, secondary=True)
+        self._cv.addSubview_(v)
+
+    # ------------------------------------------------------------------
+    # Window construction
+    # ------------------------------------------------------------------
+
+    def _build_window(self):
+        W = 460
+        margin = 20
+        field_h = 22
+        cb_h = 22
+        row_gap = 6       # gap between items in a section
+        sec_gap = 10      # space above section header (after separator)
+        sep_gap = 12      # space above separator
+
+        notif_count = len(self._settings.get("notifications", []))
+        # Fixed height contribution from each section
+        fixed_h = (
+            14                          # top padding
+            + 15 + 6                    # GENERAL header
+            + cb_h + row_gap            # Launch at login
+            + cb_h + row_gap            # Show countdown
+            + sep_gap + 1 + sec_gap     # separator
+            + 15 + 6                    # CALENDAR header
+            + 16 + 4 + field_h + row_gap  # Calendars label+field
+            + sep_gap + 1 + sec_gap     # separator
+            + 15 + 6                    # MEETINGS header
+            + cb_h + row_gap            # Open links
+            + field_h + row_gap         # Meeting app row
+            + sep_gap + 1 + sec_gap     # separator
+            + 15 + 6                    # NOTIFICATIONS header
+            + notif_count * 28          # rows
+            + 30                        # add button
+            + 1 + 14                    # bottom separator + padding
+            + 36                        # button bar
+        )
+        H = max(fixed_h, 420)
+
+        self._window = AppKit.NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
+            ((200, 200), (W, H)),
+            AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
+        self._window.setTitle_("Vince Settings")
+        self._window.center()
+        cv = self._window.contentView()
+        self._cv = cv
+        self._W = W
+        self._margin = margin
+
+        y = H - 14  # top padding
+
+        # ── GENERAL ──────────────────────────────────────────────────
+        y -= 15
+        self._section_header("General", y)
+        y -= 6
+
+        y -= cb_h
+        self._login_cb = self._checkbox(
+            "Launch at login",
+            self._settings.get("launch_at_login", True),
+            ((margin, y), (W - 2 * margin, cb_h)),
+        )
+        cv.addSubview_(self._login_cb)
+        y -= row_gap
+
+        y -= cb_h
+        self._bar_cb = self._checkbox(
+            "Show countdown in menu bar",
+            self._settings.get("show_menu_bar", True),
+            ((margin, y), (W - 2 * margin, cb_h)),
+        )
+        cv.addSubview_(self._bar_cb)
+        y -= sep_gap
+
+        cv.addSubview_(self._separator(y))
+        y -= 1 + sec_gap
+
+        # ── CALENDAR ─────────────────────────────────────────────────
+        y -= 15
+        self._section_header("Calendar", y)
+        y -= 6
+
+        y -= 16
+        cv.addSubview_(self._label("Calendar IDs (comma-separated):", ((margin, y), (W - 2 * margin, 16))))
+        y -= 4 + field_h
+        cal_str = ", ".join(self._settings.get("calendars", ["primary"]))
+        self._cal_field = self._field(cal_str, ((margin, y), (W - 2 * margin, field_h)))
+        cv.addSubview_(self._cal_field)
+        y -= row_gap + sep_gap
+
+        cv.addSubview_(self._separator(y))
+        y -= 1 + sec_gap
+
+        # ── MEETINGS ─────────────────────────────────────────────────
+        y -= 15
+        self._section_header("Meetings", y)
+        y -= 6
+
+        y -= cb_h
+        self._link_cb = self._checkbox(
+            "Open meeting links automatically",
+            self._settings.get("link_opening_enabled", True),
+            ((margin, y), (W - 2 * margin, cb_h)),
+        )
+        cv.addSubview_(self._link_cb)
+        y -= row_gap
+
+        # Meeting app row: label + field + Browse button
+        y -= field_h
+        lbl_w = 100
+        browse_w = 76
+        field_w = W - 2 * margin - lbl_w - 8 - browse_w - 6
+        cv.addSubview_(self._label("Meeting app:", ((margin, y + 3), (lbl_w, 16))))
+        self._app_field = self._field(
+            self._settings.get("app_meet", ""),
+            ((margin + lbl_w + 8, y), (field_w, field_h)),
+        )
+        cv.addSubview_(self._app_field)
+        browse_btn = AppKit.NSButton.alloc().initWithFrame_(
+            ((margin + lbl_w + 8 + field_w + 6, y), (browse_w, field_h))
+        )
+        browse_btn.setTitle_("Browse…")
+        browse_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        browse_btn.setTarget_(self._handler)
+        browse_btn.setAction_("browseApp:")
+        cv.addSubview_(browse_btn)
+        y -= row_gap + sep_gap
+
+        cv.addSubview_(self._separator(y))
+        y -= 1 + sec_gap
+
+        # ── NOTIFICATIONS ─────────────────────────────────────────────
+        y -= 15
+        self._section_header("Notifications", y)
+        y -= 6
+
+        self._notif_y_base = y
+        for notif in self._settings.get("notifications", []):
+            self._add_row_views(notif["time_left"], notif["sound"])
+
+        self._add_btn = AppKit.NSButton.alloc().initWithFrame_(((margin, 0), (150, 22)))
+        self._add_btn.setTitle_("+ Add Notification")
+        self._add_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        self._add_btn.setTarget_(self._handler)
+        self._add_btn.setAction_("addNotificationRow:")
+        cv.addSubview_(self._add_btn)
+
+        self._relayout()
+
+        # ── Bottom bar ────────────────────────────────────────────────
+        cv.addSubview_(self._separator(36))
+
+        cancel_btn = AppKit.NSButton.alloc().initWithFrame_(((W - 210, 8), (96, 28)))
+        cancel_btn.setTitle_("Cancel")
+        cancel_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        cancel_btn.setTarget_(self._handler)
+        cancel_btn.setAction_("cancel:")
+        cv.addSubview_(cancel_btn)
+
+        save_btn = AppKit.NSButton.alloc().initWithFrame_(((W - 108, 8), (96, 28)))
+        save_btn.setTitle_("Save")
+        save_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        save_btn.setKeyEquivalent_("\r")
+        save_btn.setTarget_(self._handler)
+        save_btn.setAction_("save:")
+        cv.addSubview_(save_btn)
+
+    # ------------------------------------------------------------------
+    # Notification rows
+    # ------------------------------------------------------------------
+
+    def _add_row_views(self, time_left, sound):
+        margin = self._margin
+        idx = len(self._notification_rows)
+        mins_lbl = self._label("mins before, play sound:", ((margin + 58, 0), (160, 22)), secondary=True)
+        row = {
+            "time_field": self._field(str(time_left), ((margin, 0), (46, 22))),
+            "mins_lbl": mins_lbl,
+            "sound_cb": self._checkbox("", sound, ((margin + 224, 0), (24, 22))),
+            "remove_btn": AppKit.NSButton.alloc().initWithFrame_(((margin + 254, 0), (22, 22))),
+        }
+        row["remove_btn"].setTitle_("×")
+        row["remove_btn"].setBezelStyle_(AppKit.NSBezelStyleCircular)
+        row["remove_btn"].setTarget_(self._handler)
+        row["remove_btn"].setAction_("removeNotificationRow:")
+        row["remove_btn"].setTag_(idx)
+        for v in row.values():
+            self._cv.addSubview_(v)
+        self._notification_rows.append(row)
+
+    def _relayout(self):
+        y = self._notif_y_base - 2
+        for row in self._notification_rows:
+            y -= 28
+            for v in row.values():
+                f = v.frame()
+                v.setFrame_(((f[0][0], y), f[1]))
+        y -= 32
+        f = self._add_btn.frame()
+        self._add_btn.setFrame_(((f[0][0], y), f[1]))
+
+    def add_notification_row(self, time_left, sound):
+        self._add_row_views(time_left, sound)
+        self._relayout()
+
+    def remove_notification_row(self, tag):
+        if tag >= len(self._notification_rows):
+            return
+        row = self._notification_rows[tag]
+        for v in row.values():
+            v.removeFromSuperview()
+        self._notification_rows.pop(tag)
+        for i, r in enumerate(self._notification_rows):
+            r["remove_btn"].setTag_(i)
+        self._relayout()
+
+    # ------------------------------------------------------------------
+    # Actions
+    # ------------------------------------------------------------------
+
+    def browse_app(self):
+        panel = AppKit.NSOpenPanel.openPanel()
+        panel.setCanChooseFiles_(True)
+        panel.setCanChooseDirectories_(False)
+        panel.setAllowsMultipleSelection_(False)
+        panel.setAllowedFileTypes_(["app"])
+        panel.setDirectoryURL_(AppKit.NSURL.fileURLWithPath_("/Applications"))
+        result = panel.runModal()
+        if result == AppKit.NSModalResponseOK:
+            path = panel.URLs()[0].path()
+            self._app_field.setStringValue_(path)
+
+    def save(self):
+        calendars = [c.strip() for c in self._cal_field.stringValue().split(",") if c.strip()]
+        notifications = []
+        for row in self._notification_rows:
+            try:
+                t = int(row["time_field"].stringValue())
+            except ValueError:
+                rumps.notification(title="Invalid settings", subtitle="", message="Notification time must be an integer", sound=True)
+                return
+            notifications.append({
+                "time_left": t,
+                "sound": row["sound_cb"].state() == AppKit.NSControlStateValueOn,
+            })
+        new_settings = {
+            "calendars": calendars or ["primary"],
+            "link_opening_enabled": self._link_cb.state() == AppKit.NSControlStateValueOn,
+            "show_menu_bar": self._bar_cb.state() == AppKit.NSControlStateValueOn,
+            "launch_at_login": self._login_cb.state() == AppKit.NSControlStateValueOn,
+            "app_meet": self._app_field.stringValue(),
+            "notifications": notifications,
+        }
+        self._window.orderOut_(None)
+        AppKit.NSApp.stopModal()
+        self._on_save(new_settings)
+
+    def cancel(self):
+        self._window.orderOut_(None)
+        AppKit.NSApp.stopModal()
+
+    def show(self):
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
+        AppKit.NSApp.runModalForWindow_(self._window)
+
+
+def _make_settings_controller(settings, on_save):
+    return SettingsWindowController(settings, on_save)
 
 
 class Vince(rumps.App):
@@ -307,12 +654,6 @@ class Vince(rumps.App):
                     }
                 )
 
-            # Update settings for notifications
-            self.settings["notifications"] = [
-                {"time_left": 1, "sound": True},
-                {"time_left": 0, "sound": True},
-            ]
-
             d_events = sorted(d_events, key=lambda d: d["start"])
 
             self.menu_items = d_events
@@ -411,7 +752,7 @@ class Vince(rumps.App):
         for url in urls:
             if app_meet := self.settings.get("app_meet", ""):
                 if url.startswith("https://meet.google.com"):
-                    cmd = rf"open -a {app_meet} "
+                    cmd = rf'open -a "{app_meet}" '
                     self._copy_link([url])
                     logging.debug(cmd)
                     os.system(cmd)
@@ -556,10 +897,8 @@ class Vince(rumps.App):
                 if current_events != self.current_events:
                     if not current_events:
                         self.dnd(None)
-                        self.slack_meeting(None)
                     else:
                         event = sorted(current_events, key=lambda x: x["end"])[0]
-                        self.slack_meeting(event)
                         self.dnd(event)
 
                     self.current_events = current_events
@@ -753,64 +1092,67 @@ class Vince(rumps.App):
         except Exception:
             logging.exception("Problemi with running shorcut.")
 
-    def slack_meeting(self, event, reset=False):
-        slack_token = self.settings.get("slack_oauth_token", "")
-        if not slack_token:
-            return
-        auth = {"Authorization": "Bearer %s" % slack_token}
-        # if reset:
-        #     data = {"num_minutes": 0}
-        #     res = requests.get('https://slack.com/api/dnd.setSnooze', params=data,
-        #                        headers=auth)
-        # else:
-        current_datetime = datetime.now(pytz.utc)
-        if not event:
-            data = {"profile": {"status_text": "", "status_emoji": ""}}
-            epoch = self._convert_minutes_to_epoch(0)
-            data["profile"]["status_expiration"] = epoch
-            res = requests.post(
-                "https://slack.com/api/users.profile.set", json=data, headers=auth
-            )
-            data = {"num_minutes": 0}
-            res = requests.get(
-                "https://slack.com/api/dnd.setSnooze", params=data, headers=auth
-            )
-        else:
-            minutes = (event["end"] - current_datetime).seconds // 60
-            if event["eventType"] == "outOfOffice":
-                status_emoji = ":no_entry_sign:"
-            elif event["eventType"] == "focusTime":
-                status_emoji = ":person_in_lotus_position:"
-            elif event["summary"].lower() in ["lunch"]:
-                status_emoji = ":chef-brb:"
-            else:
-                status_emoji = ":date:"
+    # ------------------------------------------------------------------
+    # Launch at login helpers
+    # ------------------------------------------------------------------
 
-            if event["visibility"] in ["default", "public"]:
-                status_text = f"{event['summary']} [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
+    _LAUNCH_AGENT_LABEL = "com.stefanotranquillini.vince"
+
+    def _launch_agent_path(self):
+        agents_dir = os.path.expanduser("~/Library/LaunchAgents")
+        return os.path.join(agents_dir, f"{self._LAUNCH_AGENT_LABEL}.plist")
+
+    def _app_executable(self):
+        import sys
+        exe = os.path.abspath(sys.executable)
+        # When running as py2app bundle: .../Vince.app/Contents/MacOS/vince
+        # We want to launch the .app bundle itself via 'open'
+        parts = exe.split(os.sep)
+        for i, p in enumerate(parts):
+            if p.endswith(".app"):
+                return os.sep + os.path.join(*parts[: i + 1])
+        return exe  # fallback: running from source
+
+    def _is_launch_at_login(self):
+        return os.path.exists(self._launch_agent_path())
+
+    def _set_launch_at_login(self, enabled):
+        plist_path = self._launch_agent_path()
+        agents_dir = os.path.dirname(plist_path)
+        if enabled:
+            os.makedirs(agents_dir, exist_ok=True)
+            app_path = self._app_executable()
+            if app_path.endswith(".app"):
+                program_args = ["/usr/bin/open", "-a", app_path]
             else:
-                status_text = f"Meeting [{event['start'].strftime('%H:%M')}-{event['end'].strftime('%H:%M')}]"
-            data = {
-                "profile": {"status_text": status_text, "status_emoji": status_emoji}
+                import sys
+                program_args = [sys.executable, app_path]
+            plist = {
+                "Label": self._LAUNCH_AGENT_LABEL,
+                "ProgramArguments": program_args,
+                "RunAtLoad": True,
+                "KeepAlive": False,
             }
-            epoch = self._convert_minutes_to_epoch(minutes)
-            data["profile"]["status_expiration"] = epoch
-            res = requests.post(
-                "https://slack.com/api/users.profile.set", json=data, headers=auth
-            )
-            data = {"num_minutes": minutes}
-            res = requests.get(
-                "https://slack.com/api/dnd.setSnooze", params=data, headers=auth
-            )
+            with open(plist_path, "wb") as f:
+                plistlib.dump(plist, f)
+            os.system(f"launchctl load '{plist_path}'")
+        else:
+            if os.path.exists(plist_path):
+                os.system(f"launchctl unload '{plist_path}'")
+                os.remove(plist_path)
+
+    # ------------------------------------------------------------------
 
     def load_settings(self):
         data_dir = user_data_dir(self.app_name)
         settings_path = os.path.join(data_dir, "settings.json")
+        is_first_launch = not os.path.exists(settings_path)
         default_settings = {
             "calendars": ["primary"],
             "link_opening_enabled": True,
             "show_menu_bar": True,
             "app_meet": "",
+            "launch_at_login": True,
             "notifications": [
                 {"time_left": 5, "sound": False},
                 {"time_left": 3, "sound": False},
@@ -820,10 +1162,11 @@ class Vince(rumps.App):
         try:
             with open(settings_path, "r") as settings_file:
                 settings = json.load(settings_file)
-                # Merge loaded settings with default settings
                 settings = {**default_settings, **settings}
         except (FileNotFoundError, json.JSONDecodeError):
             settings = default_settings
+        if is_first_launch:
+            self._set_launch_at_login(True)
         return settings
 
     def save_settings(self):
@@ -832,53 +1175,23 @@ class Vince(rumps.App):
         with open(settings_path, "w") as settings_file:
             json.dump(self.settings, settings_file, indent=4)
 
-    def slack_oauth(self):
-        client_id = "3091729876.2525836761175"
-        scopes = "user_scope=dnd:write,users.profile:write,users:write"
-        state = "".join(random.choices(string.ascii_uppercase + string.digits, k=15))
-        url = (
-            "https://slack.com/oauth/v2/authorize?client_id="
-            + client_id
-            + "&scope=&"
-            + scopes
-            + "&state="
-            + state
-        )
-        rumps.alert(
-            "Proceed in the browers and copy the string `xoxo--..` and past them in the settings at `slack_oauth_token`"
-        )
-        webbrowser.open(url)
-        self.open_settings_window(None)
-
     def open_settings_window(self, _):
-        window = rumps.Window(
-            title="Vince Settings",
-            dimensions=(300, 200),
-            ok="Save settings",
-            cancel=True,
+        self._settings_controller = _make_settings_controller(self.settings, self._on_settings_save)
+        self._settings_controller.show()
+
+    def _on_settings_save(self, new_settings):
+        old_launch = self.settings.get("launch_at_login", True)
+        new_launch = new_settings.get("launch_at_login", True)
+        self.settings = new_settings
+        self.save_settings()
+        if old_launch != new_launch:
+            self._set_launch_at_login(new_launch)
+        rumps.notification(
+            title="Saved settings",
+            subtitle="",
+            message="Settings saved successfully",
+            sound=True,
         )
-        window.message = "Configure your settings:"
-        window.default_text = json.dumps(self.settings, indent=2)
-        window.add_button("Slack Setup")
-        res = window.run()
-        if res.clicked == 2:
-            self.slack_oauth()
-        try:
-            self.settings = json.loads(res.text)
-            self.save_settings()
-            rumps.notification(
-                title="Saved settings",
-                subtitle="",
-                message="Saved settings",
-                sound=True,
-            )
-        except:
-            rumps.notification(
-                title="Cannot save the settings",
-                subtitle="",
-                message="There was an error",
-                sound=True,
-            )
 
 
 if __name__ == "__main__":
