@@ -1,150 +1,902 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vince — macOS Menu Bar Calendar</title>
-  <style>
-    :root {
-      --accent: #007AFF;
-      --bg: #f5f5f7;
-      --card: #ffffff;
-      --text: #1d1d1f;
-      --muted: #6e6e73;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-    }
-    header {
-      background: var(--card);
-      border-bottom: 1px solid #d2d2d7;
-      padding: 2rem 1rem;
-      text-align: center;
-    }
-    header h1 { font-size: 2.5rem; font-weight: 700; }
-    header p.tagline { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
-    .hero {
-      max-width: 680px;
-      margin: 3rem auto;
-      padding: 0 1rem;
-      text-align: center;
-    }
-    .hero p { font-size: 1.15rem; color: var(--muted); margin-bottom: 2rem; }
-    .download-btn {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      text-decoration: none;
-      padding: 0.85rem 2.2rem;
-      border-radius: 980px;
-      font-size: 1.05rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-    .download-btn:hover { background: #0056cc; }
-    .meta {
-      display: block;
-      margin-top: 0.75rem;
-      color: var(--muted);
-      font-size: 0.875rem;
-    }
-    .features {
-      max-width: 680px;
-      margin: 0 auto 2rem;
-      padding: 0 1rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-    }
-    .feature-card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      border: 1px solid #d2d2d7;
-    }
-    .feature-card h3 { font-size: 1rem; margin-bottom: 0.4rem; }
-    .feature-card p { font-size: 0.9rem; color: var(--muted); }
-    .changelog {
-      max-width: 680px;
-      margin: 2rem auto 4rem;
-      padding: 0 1rem;
-    }
-    .changelog h2 { font-size: 1.4rem; margin-bottom: 1.25rem; }
-    .changelog-body {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 1.5rem 2rem;
-      border: 1px solid #d2d2d7;
-    }
-    .changelog-body h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e5e5ea; padding-bottom: 0.25rem; }
-    .changelog-body h2:first-child { margin-top: 0; }
-    .changelog-body h3 { font-size: 0.95rem; color: var(--muted); margin-top: 0.75rem; margin-bottom: 0.25rem; }
-    .changelog-body ul { padding-left: 1.5rem; }
-    .changelog-body li { margin-bottom: 0.2rem; font-size: 0.95rem; }
-    .changelog-body a { color: var(--accent); text-decoration: none; }
-    footer {
-      text-align: center;
-      padding: 1.5rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-      border-top: 1px solid #d2d2d7;
-    }
-    footer a { color: var(--accent); text-decoration: none; }
-  </style>
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vince — Early is on time. On time is late. Late is unacceptable.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-soft: #f5f5f7; /* Apple-ish soft background */
+        --bg-card: #fafafc;
+        --ink: #1d1d1f;
+        --ink-2: #424245;
+        --muted: #86868b;
+        --line: rgba(0, 0, 0, 0.08);
+        --line-strong: rgba(0, 0, 0, 0.14);
+        --accent: #0a84ff; /* macOS system blue */
+        --accent-soft: rgba(10, 132, 255, 0.1);
+        --radius: 18px;
+        --radius-sm: 12px;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          "Inter", system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 17px;
+        line-height: 1.5;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 28px;
+      }
+      @media (max-width: 640px) {
+        .wrap {
+          padding: 0 20px;
+        }
+      }
 
-<header>
-  <h1>Vince</h1>
-  <p class="tagline">Early is on time. On time is late. Late is unacceptable.</p>
-</header>
+      h1,
+      h2,
+      h3,
+      h4 {
+        font-family: var(--sans);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        margin: 0;
+        color: var(--ink);
+      }
+      p {
+        margin: 0;
+      }
 
-<section class="hero">
-  <p>macOS menu bar app that shows your Google Calendar events, counts down to your next meeting, and auto-opens video links so you're never late.</p>
-  <a class="download-btn"
-     href="https://github.com/esseti/vince/releases/download/{{VERSION}}/VInce.zip">
-    Download Vince {{VERSION}}
-  </a>
-  <span class="meta">macOS 12+ &bull; Released {{RELEASE_DATE}} &bull; Free &amp; open source</span>
-</section>
+      /* ============ NAV ============ */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: saturate(180%) blur(20px);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid var(--line);
+      }
+      .nav .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 52px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 16px;
+        letter-spacing: -0.01em;
+      }
+      .brand .mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--ink);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .nav nav {
+        display: flex;
+        gap: 28px;
+        font-size: 14px;
+      }
+      .nav nav a {
+        color: var(--ink-2);
+      }
+      .nav nav a:hover {
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .nav .download {
+        background: var(--ink);
+        color: #fff;
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 13.5px;
+        font-weight: 500;
+      }
+      .nav .download:hover {
+        background: #000;
+        text-decoration: none;
+      }
+      @media (max-width: 720px) {
+        .nav nav {
+          display: none;
+        }
+      }
 
-<section class="features">
-  <div class="feature-card">
-    <h3>Menu bar at a glance</h3>
-    <p>Current event + live countdown shown directly in your menu bar. No extra windows.</p>
-  </div>
-  <div class="feature-card">
-    <h3>Auto-open meetings</h3>
-    <p>One minute before start, Vince opens the Meet/Zoom/Teams link automatically.</p>
-  </div>
-  <div class="feature-card">
-    <h3>Meeting timer popup</h3>
-    <p>Color-coded timer (green → yellow → red) shows how much time is left in the current meeting.</p>
-  </div>
-  <div class="feature-card">
-    <h3>Slack DND sync</h3>
-    <p>Sets your Slack status to Do Not Disturb while you're in a meeting.</p>
-  </div>
-</section>
+      /* ============ HERO ============ */
+      .hero {
+        padding: 96px 0 72px;
+        text-align: center;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-soft);
+        color: var(--ink-2);
+        font-size: 13px;
+        font-weight: 500;
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-bottom: 28px;
+        border: 1px solid var(--line);
+      }
+      .eyebrow .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #34c759;
+        box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.15);
+      }
+      h1.display {
+        font-size: clamp(44px, 6.4vw, 76px);
+        font-weight: 600;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+        max-width: 14ch;
+        margin: 0 auto 24px;
+      }
+      h1 .accent {
+        background: linear-gradient(180deg, #0a84ff 0%, #0066d6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero p.lede {
+        font-size: 21px;
+        line-height: 1.45;
+        color: var(--ink-2);
+        max-width: 54ch;
+        margin: 0 auto 36px;
+        font-weight: 400;
+        letter-spacing: -0.01em;
+      }
+      .ctas {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 13px 22px;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 500;
+        transition:
+          transform 0.15s ease,
+          background 0.15s ease,
+          opacity 0.15s ease;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #006fe6;
+        text-decoration: none;
+      }
+      .btn-secondary {
+        background: var(--bg-soft);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+      .btn-secondary:hover {
+        background: #ececef;
+        text-decoration: none;
+      }
+      .meta {
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .meta .sep {
+        color: var(--line-strong);
+      }
 
-<section class="changelog">
-  <h2>Changelog</h2>
-  <div class="changelog-body">
-    {{CHANGELOG_HTML}}
-  </div>
-</section>
+      /* hero hero shot placeholder */
+      .hero-shot {
+        margin: 64px auto 0;
+        max-width: 1040px;
+        aspect-ratio: 16/10;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #f5f5f7 0%, #ececef 100%);
+        border: 1px solid var(--line);
+        box-shadow:
+          0 30px 60px -20px rgba(0, 0, 0, 0.18),
+          0 10px 30px -10px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        position: relative;
+      }
+      .placeholder {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        background-image: repeating-linear-gradient(
+          135deg,
+          transparent 0 14px,
+          rgba(0, 0, 0, 0.025) 14px 15px
+        );
+        position: relative;
+      }
+      .placeholder .label {
+        background: #fff;
+        border: 1px solid var(--line);
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-2);
+        letter-spacing: 0;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .placeholder .label::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        border: 1.5px dashed var(--muted);
+      }
 
-<footer>
-  <p>
-    Open source &mdash;
-    <a href="https://github.com/esseti/vince">esseti/vince on GitHub</a>
-    &mdash; GNU GPL 3
-  </p>
-</footer>
+      /* ============ FEATURES ============ */
+      .section {
+        padding: 96px 0;
+      }
+      .section.alt {
+        background: var(--bg-soft);
+      }
+      .section-head {
+        text-align: center;
+        max-width: 38ch;
+        margin: 0 auto 56px;
+      }
+      .section-head .kicker {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 12px;
+      }
+      .section-head h2 {
+        font-size: clamp(34px, 4.4vw, 52px);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        margin-bottom: 16px;
+      }
+      .section-head p {
+        color: var(--ink-2);
+        font-size: 18px;
+        line-height: 1.5;
+      }
 
-</body>
+      .features {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+      }
+      @media (max-width: 840px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+      }
+      .feature-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .section.alt .feature-card {
+        background: #fff;
+      }
+      .feature-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+      }
+      .feature-card .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .feature-card h3 {
+        font-size: 22px;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+      .feature-card p {
+        color: var(--ink-2);
+        font-size: 15.5px;
+        line-height: 1.55;
+      }
+      .feature-card .shot {
+        margin-top: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        aspect-ratio: 16/9;
+        background: linear-gradient(135deg, #f5f5f7 0%, #ebebef 100%);
+        overflow: hidden;
+      }
+
+      /* ============ ANATOMY (single placeholder) ============ */
+      .anatomy {
+        padding: 96px 0;
+      }
+      .anatomy-shot {
+        max-width: 1040px;
+        margin: 0 auto;
+        aspect-ratio: 16/9;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #f5f5f7 0%, #ececef 100%);
+        border: 1px solid var(--line);
+        box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+      }
+
+      /* ============ HOW IT WORKS ============ */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      @media (max-width: 840px) {
+        .steps {
+          grid-template-columns: 1fr;
+        }
+      }
+      .step {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .step .n {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .step h4 {
+        font-size: 19px;
+        letter-spacing: -0.015em;
+      }
+      .step p {
+        color: var(--ink-2);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      /* ============ CHANGELOG ============ */
+      .changelog {
+        padding: 96px 0;
+        border-top: 1px solid var(--line);
+      }
+      .cl-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.6fr;
+        gap: 64px;
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+      @media (max-width: 768px) {
+        .cl-grid {
+          grid-template-columns: 1fr;
+          gap: 32px;
+        }
+      }
+      .cl-grid h2 {
+        font-size: 36px;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+        margin-bottom: 14px;
+      }
+      .cl-grid p {
+        color: var(--ink-2);
+        font-size: 16px;
+        line-height: 1.55;
+        max-width: 34ch;
+      }
+      .cl-list {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .cl-item {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 22px 24px;
+        background: #fff;
+      }
+      .cl-item header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .cl-item .ver {
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.005em;
+      }
+      .cl-item .date {
+        color: var(--muted);
+        font-size: 13px;
+        font-family: var(--mono);
+      }
+      .cl-item .latest-tag {
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 999px;
+        margin-left: auto;
+      }
+      .cl-item ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .cl-item li {
+        font-size: 14.5px;
+        color: var(--ink-2);
+        line-height: 1.55;
+        margin-bottom: 4px;
+      }
+      .cl-item li::marker {
+        color: var(--muted);
+      }
+
+      /* ============ CHANGELOG MARKDOWN OUTPUT ============ */
+      .cl-list h2 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        margin: 24px 0 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink);
+      }
+      .cl-list h2:first-child {
+        margin-top: 0;
+      }
+      .cl-list h3 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 12px 0 6px;
+      }
+      .cl-list ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .cl-list li {
+        font-size: 14.5px;
+        color: var(--ink-2);
+        line-height: 1.55;
+        margin-bottom: 4px;
+      }
+      .cl-list li::marker {
+        color: var(--muted);
+      }
+      .cl-list a {
+        color: var(--accent);
+      }
+      .cl-more {
+        margin-top: 20px;
+        font-size: 13.5px;
+      }
+      .cl-more a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .cl-more a:hover {
+        text-decoration: underline;
+      }
+
+      /* ============ CTA BAND ============ */
+      .cta-band {
+        padding: 120px 0;
+        text-align: center;
+        background: linear-gradient(180deg, #fafafc 0%, #f0f0f4 100%);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .cta-band h2 {
+        font-size: clamp(36px, 5vw, 60px);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin-bottom: 18px;
+        max-width: 18ch;
+        margin-inline: auto;
+      }
+      .cta-band p {
+        color: var(--ink-2);
+        font-size: 18px;
+        margin-bottom: 32px;
+      }
+
+      /* ============ FOOTER ============ */
+      footer {
+        padding: 48px 0 32px;
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+      .foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .foot nav {
+        display: flex;
+        gap: 22px;
+      }
+      .foot nav a {
+        color: var(--muted);
+      }
+      .foot nav a:hover {
+        color: var(--ink-2);
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ NAV ============ -->
+    <header class="nav">
+      <div class="wrap row">
+        <a href="#" class="brand" style="color: inherit">
+          <span class="mark">V</span>
+          <span>Vince</span>
+        </a>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#changelog">Changelog</a>
+          <a href="https://github.com/esseti/vince">GitHub</a>
+        </nav>
+        <a
+          href="https://github.com/esseti/vince/releases/download/{{VERSION}}/VInce.zip"
+          class="download"
+          >Download</a
+        >
+      </div>
+    </header>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="wrap">
+        <div class="eyebrow">
+          <span class="dot"></span>
+          <span>Version {{VERSION}} · for macOS</span>
+        </div>
+        <h1 class="display">
+          "Early is on time. <span class="accent">On time is late.</span>"
+          <br><small><i>Vince Lombardi</i></small>
+        </h1>
+        <p class="lede">
+          Vince is a tiny macOS app that shows your next Google Calendar meeting
+          in the menu bar, counts down to the start, and opens the call link
+          automatically — so you're never late.
+        </p>
+        <div class="ctas">
+          <a
+            href="https://github.com/esseti/vince/releases/download/{{VERSION}}/VInce.zip"
+            class="btn btn-primary"
+            >Download for macOS</a
+          >
+          <a href="https://github.com/esseti/vince" class="btn btn-secondary"
+            >View on GitHub →</a
+          >
+        </div>
+        <div class="meta">
+          <span>Free &amp; open source</span>
+          <span class="sep">·</span>
+          <span>macOS 12 or later</span>
+          <span class="sep">·</span>
+          <span>Universal binary</span>
+        </div>
+
+        <!-- Hero video embed -->
+        <div class="hero-shot">
+          <iframe
+            style="width:100%;height:100%;display:block;"
+            src="https://www.youtube.com/embed/jvb6BiCj1X8?si=B71oVarz74NoojQU"
+            title="YouTube video player"
+            frameborder="0"
+            allow="
+              accelerometer;
+              autoplay;
+              clipboard-write;
+              encrypted-media;
+              gyroscope;
+              picture-in-picture;
+              web-share;
+            "
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section class="section alt" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Features</div>
+          <h2>Small app. Big focus on time.</h2>
+          <p>Four jobs, done quietly in the background, every day.</p>
+        </div>
+
+        <div class="features">
+          <article class="feature-card">
+            <div class="icon">◷</div>
+            <h3>Live countdown in the menu bar</h3>
+            <p>
+              The current event and the time remaining sit right next to your
+              clock. One glance — you know where you stand.
+            </p>
+            <div class="shot">
+              <img
+                src="images/feature-1-menubar.png"
+                alt="Menu bar with live countdown next to events list"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  display: block;
+                "
+              />
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <div class="icon">↗</div>
+            <h3>Auto-opens your meeting links</h3>
+            <p>
+              One minute before the meeting starts, Vince opens the Meet, Zoom
+              or Teams link from the event description. You walk in early, every
+              time.
+            </p>
+            <div class="shot">
+              <img
+                src="images/feature-2-autoopen.png"
+                alt="Browser opening meeting link with Vince notification"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  display: block;
+                "
+              />
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <div class="icon">⏱</div>
+            <h3>Floating timer popup</h3>
+            <p>
+              An optional popup shows how much time is left in the current
+              meeting, with a color that shifts as the clock runs down.
+            </p>
+            <div class="shot">
+              <img
+                src="images/feature-3-popup.png"
+                alt="Three timer popup states: green, yellow, red"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  display: block;
+                "
+              />
+            </div>
+          </article>
+
+          <article class="feature-card">
+            <div class="icon">●</div>
+            <h3>Slack Do Not Disturb</h3>
+            <p>
+              While you're in a meeting, Vince flips Slack to DND and sets your
+              status. When the meeting ends, it puts everything back.
+            </p>
+            <div class="shot">
+              <img
+                src="images/feature-4-slack.png"
+                alt="Slack with DND on, set automatically by Vince"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                  display: block;
+                "
+              />
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section class="section alt" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">How it works</div>
+          <h2>Up and running in two clicks.</h2>
+          <p>
+            Download, sign in to Google that's it.
+          </p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="n">1</div>
+            <h4>Download &amp; install</h4>
+            <p>Unzip and drag Vince into Applications. macOS 12 or newer.</p>
+          </div>
+          <div class="step">
+            <div class="n">2</div>
+            <h4>Connect Google Calendar</h4>
+            <p>Sign in once. Vince only needs read access to your events.</p>
+          </div>
+          <div class="step">
+            <div class="n">3</div>
+            <h4>Never be late again</h4>
+            <p>
+              Vince quietly shows your next event and counts down to the start —
+              so you can be on time, every time.
+            </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CHANGELOG ============ -->
+    <section class="changelog" id="changelog">
+      <div class="wrap">
+        <div class="cl-grid">
+          <div>
+            <div
+              class="kicker"
+              style="
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 12px;
+              "
+            >
+              Changelog
+            </div>
+            <h2>Quiet, deliberate updates.</h2>
+            <p>
+              No newsletters. No marketing emails. Just things that make Vince a
+              little more punctual every release.
+            </p>
+          </div>
+          <div class="cl-list">{{CHANGELOG_HTML}}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CTA BAND ============ -->
+    <section class="cta-band">
+      <div class="wrap">
+        <h2>Be on time. Without thinking about it.</h2>
+        <p>Free, open source, and quietly useful every working day.</p>
+        <div class="ctas">
+          <a
+            href="https://github.com/esseti/vince/releases/download/{{VERSION}}/VInce.zip"
+            class="btn btn-primary"
+            >Download Vince {{VERSION}}</a
+          >
+          <a href="https://github.com/esseti/vince" class="btn btn-secondary"
+            >Source on GitHub</a
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer>
+      <div class="wrap foot">
+        <div>
+          © 2023–2026 Vince · GNU GPL 3 · Built by
+          <a href="https://github.com/esseti" style="color: var(--ink-2)"
+            >@esseti</a
+          >
+        </div>
+        <nav>
+          <a href="https://github.com/esseti/vince">GitHub</a>
+          <a href="https://github.com/esseti/vince#readme">README</a>
+          <a href="#changelog">Changelog</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
 </html>

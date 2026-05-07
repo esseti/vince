@@ -7,6 +7,8 @@
       "Bash(brew list *)",
       "Bash(brew install *)",
       "Bash(git-cliff --output CHANGELOG.md)",
+      "Bash(git -C /Users/stefano/sw/vince status)",
+      "Bash(git -C /Users/stefano/sw/vince log --oneline -5)"
       "Bash(python -c \"import ast; ast.parse\\(open\\('vince.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(python -c ' *)",
       "Bash(kill %1)"
