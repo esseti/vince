@@ -410,12 +410,12 @@ def _make_settings_controller(settings, on_save):
 
 
 class Vince(rumps.App):
-    def __init__(self):
+    def __init__(self, demo=False):
         super(Vince, self).__init__("Vince", icon="menu-icon.png", template=True)
         self.scopes = ["https://www.googleapis.com/auth/calendar.readonly"]
         self.flow = None
-        # this is to get the library folder
         self.app_name = "Vince"
+        self.demo = demo
         self.settings = self.load_settings()
         self.current_events = []
         self.creds = None
@@ -510,16 +510,27 @@ class Vince(rumps.App):
             return
         self.load_events()
 
+    # In demo mode popups fire 5 s before start instead of 60 s
+    DEMO_POPUP_THRESHOLD_SECONDS = 5
+
+    def _fake_events(self):
+        now = datetime.now(pytz.utc)
+        # Each event starts just after the popup threshold so the popup fires quickly
+        gap = self.DEMO_POPUP_THRESHOLD_SECONDS + 2
+        s1 = now + timedelta(seconds=gap)
+        e1 = s1 + timedelta(seconds=40)
+        s2 = e1 + timedelta(seconds=10)
+        e2 = s2 + timedelta(seconds=40)
+        s3 = e2 + timedelta(seconds=10)
+        e3 = s3 + timedelta(seconds=40)
+        def ev(i, s, e):
+            return {"id": f"demo_{i}", "start": s, "end": e, "summary": f"Demo event {i}", "url": "", "attendees": [], "urls": [], "eventType": "default", "visibility": "default", "attendee_response": "accepted"}
+        return [ev(1, s1, e1), ev(2, s2, e2), ev(3, s3, e3)]
+
     def load_events(self):
-        # d_events=[]
-        # now = datetime.now(pytz.utc)
-        # i=1
-        # d_event = dict(id=1, start=now+timedelta(seconds=15), end=now+timedelta(seconds=30), summary=f"Event {i}", url="URL {i}", eventType='',visibility='default')
-        # d_events.append(d_event)
-        # i=2
-        # d_event = dict(id=1, start=now+timedelta(seconds=65), end=now+timedelta(seconds=185+60), summary=f"Event {i}", url="http://{i}.com", eventType='',visibility='default')
-        # d_events.append(d_event)
-        # self.menu_items = d_events
+        if self.demo:
+            self.menu_items = self._fake_events()
+            return
         # gets all todays' event from calendar
         try:
             service = build("calendar", "v3", credentials=self.creds)
@@ -605,54 +616,7 @@ class Vince(rumps.App):
             # Add an event that ends in 5 minutes and 5 seconds
 
             if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-                now = datetime.now(pytz.utc)
-                end_time = now + timedelta(minutes=0, seconds=10)
-                d_events.append(
-                    {
-                        "id": "upcoming_end_event_1",
-                        "start": now,
-                        "end": end_time,
-                        "summary": "Event ending soon",
-                        "url": "",
-                        "attendees": [],
-                        "urls": [],
-                        "eventType": "default",
-                        "visibility": "default",
-                        "attendee_response": "accepted",
-                    }
-                )
-                start_time = end_time + timedelta(seconds=10)
-                end_time = start_time + timedelta(seconds=60)
-                d_events.append(
-                    {
-                        "id": "upcoming_end_event_2",
-                        "start": start_time,
-                        "end": end_time,
-                        "summary": "Event ending soon 2",
-                        "url": "",
-                        "attendees": [],
-                        "urls": [],
-                        "eventType": "default",
-                        "visibility": "default",
-                        "attendee_response": "accepted",
-                    }
-                )
-                start_time = end_time + timedelta(seconds=60)
-                end_time = start_time + timedelta(seconds=60)
-                d_events.append(
-                    {
-                        "id": "upcoming_end_event_3",
-                        "start": start_time,
-                        "end": end_time,
-                        "summary": "Event ending soon3",
-                        "url": "",
-                        "attendees": [],
-                        "urls": [],
-                        "eventType": "default",
-                        "visibility": "default",
-                        "attendee_response": "accepted",
-                    }
-                )
+                d_events.extend(self._fake_events())
 
             d_events = sorted(d_events, key=lambda d: d["start"])
 
@@ -953,7 +917,7 @@ class Vince(rumps.App):
 
     @rumps.timer(1)
     def send_notification(self, _):
-        if not self.creds:
+        if not self.creds and not self.demo:
             return
         if self.settings["notifications"]:
             if self.menu_items:
@@ -994,7 +958,12 @@ class Vince(rumps.App):
             hours, minutes, seconds = self._time_left(
                 event["start"], current_datetime, show_seconds=True
             )
-            if hours == 0 and minutes == 1 and seconds == 0:
+            total_seconds = hours * 3600 + minutes * 60 + seconds
+            if self.demo:
+                trigger = total_seconds == self.DEMO_POPUP_THRESHOLD_SECONDS
+            else:
+                trigger = hours == 0 and minutes == 1 and seconds == 0
+            if trigger:
                 self.countdown_windows[event["id"]] = {
                     "window": CountdownWindow(event, parent=self),
                     "closed": False,
@@ -1201,10 +1170,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--debug", action="store_true", help="Set logger to debug level"
     )
+    parser.add_argument(
+        "--demo", action="store_true", help="Use fake events instead of real calendar data"
+    )
     args = parser.parse_args()
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    app = Vince()
+    app = Vince(demo=args.demo)
     app.run()
