@@ -2,11 +2,38 @@
 ## Unreleased
 
 ### Other
+- Merge tag '3.0.0' into develop
+
+new setting and streamnline of actions
+- Gitignore
+
+## [3.0.0] - 2026-05-07
+
+### Other
+- Redone all the settings view
+- Lock poetry
+- Merge branch 'release/3.0.0'
+
+## [2.3.0] - 2026-05-06
+
+### Bug Fixes
+- Update landing page, add manual pages trigger
+- Pages workflow runs on manual dispatch
+
+
+### Other
+- Add fixes for the index
+- Page fixes
+
+## [2.2.0] - 2026-05-06
+
+### Other
 - Merge tag '2.1.0' into develop
 
 tentative meetings
 - Addin hours to the popup
 - Merge branch 'main' into develop
+- Streamline work
 
 ## [2.1.0] - 2025-11-04
 
