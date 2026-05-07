@@ -2,7 +2,7 @@
 
 Vince - Early is on time, on time is late and late is unacceptable!
 
-www.stefanotranquillini.com/vince
+[[www.stefanotranquillini.com/vince](https://esseti.github.io/vince/)](https://esseti.github.io/vince/)
 
 ## Main features
 
@@ -37,8 +37,7 @@ www.stefanotranquillini.com/vince
 
 - Integrated Timer:
   A popup displays the time remaining in the meeting. The color changes from purple to green, yellow, orange, and red depending on the time left.
-![image](https://github.com/user-attachments/assets/ca9f6b55-1ab3-460a-bc44-3daa71149b39)
-
+  ![image](https://github.com/user-attachments/assets/ca9f6b55-1ab3-460a-bc44-3daa71149b39)
 
 #### NOTE
 

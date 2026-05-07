@@ -164,3 +164,4 @@ src/token.json
 src/*.json
 .vscode
 src/Vince.zip
+.claude
