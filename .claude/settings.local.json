@@ -6,7 +6,10 @@
       "Bash(git -C /Users/stefano/sw/vince ls-files src/)",
       "Bash(brew list *)",
       "Bash(brew install *)",
-      "Bash(git-cliff --output CHANGELOG.md)"
+      "Bash(git-cliff --output CHANGELOG.md)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('vince.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(kill %1)"
     ]
   }
 }
