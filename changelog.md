@@ -1,4 +1,16 @@
 
+## [3.1.0] - 2026-05-15
+
+### Miscellaneous
+- Update changelog for 3.0.1
+
+
+### Other
+- Add colors of events in dropdown
+
+- Merge branch 'release/3.1.0'
+
+
 ## [3.0.1] - 2026-05-11
 
 ### Bug Fixes
