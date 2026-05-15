@@ -60,6 +60,52 @@ def str_truncate(string, width):
     return string
 
 
+def _parse_hex_color(hex_color):
+    """Return (r, g, b) floats 0-1 from a hex string, or None on failure."""
+    if not hex_color or not hex_color.startswith("#") or len(hex_color) < 7:
+        return None
+    try:
+        return (
+            int(hex_color[1:3], 16) / 255,
+            int(hex_color[3:5], 16) / 255,
+            int(hex_color[5:7], 16) / 255,
+        )
+    except ValueError:
+        return None
+
+
+def _make_color_dot_image(hex_color, size=13):
+    """Create a circular NSImage filled with the exact hex color."""
+    rgb = _parse_hex_color(hex_color)
+    if rgb is None:
+        return None
+    r, g, b = rgb
+    color = AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, 1.0)
+    image = AppKit.NSImage.alloc().initWithSize_((size, size))
+    image.lockFocus()
+    color.set()
+    path = AppKit.NSBezierPath.alloc().init()
+    path.appendBezierPathWithOvalInRect_(((0, 0), (size, size)))
+    path.fill()
+    image.unlockFocus()
+    return image
+
+
+def _make_color_swatch_view(hex_color, size=12):
+    """Create a small circular NSView with the exact hex color (for settings UI)."""
+    rgb = _parse_hex_color(hex_color)
+    if rgb is None:
+        return None
+    r, g, b = rgb
+    view = AppKit.NSView.alloc().initWithFrame_(((0, 0), (size, size)))
+    view.setWantsLayer_(True)
+    view.layer().setBackgroundColor_(
+        AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, 1.0).CGColor()
+    )
+    view.layer().setCornerRadius_(size / 2)
+    return view
+
+
 class _SettingsActionHandler(AppKit.NSObject):
     """Thin NSObject that forwards button actions to SettingsWindowController."""
 
@@ -89,10 +135,12 @@ class _SettingsActionHandler(AppKit.NSObject):
 class SettingsWindowController:
     """Native macOS settings window with form controls."""
 
-    def __init__(self, settings, on_save):
+    def __init__(self, settings, on_save, available_calendars=None):
         self._on_save = on_save
         self._settings = dict(settings)
         self._notification_rows = []
+        self._calendar_checkboxes = []  # list of (cal_id, NSButton)
+        self._available_calendars = available_calendars  # list of {id, name} or None
         self._handler = _SettingsActionHandler.alloc().init()
         self._handler.controller = self
         self._build_window()
@@ -161,7 +209,7 @@ class SettingsWindowController:
             + cb_h + row_gap            # Show countdown
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # CALENDAR header
-            + 16 + 4 + field_h + row_gap  # Calendars label+field
+            + 120 + row_gap             # scroll view (fixed height) or fallback field
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # MEETINGS header
             + cb_h + row_gap            # Open links
@@ -221,13 +269,53 @@ class SettingsWindowController:
         self._section_header("Calendar", y)
         y -= 6
 
-        y -= 16
-        cv.addSubview_(self._label("Calendar IDs (comma-separated):", ((margin, y), (W - 2 * margin, 16))))
-        y -= 4 + field_h
-        cal_str = ", ".join(self._settings.get("calendars", ["primary"]))
-        self._cal_field = self._field(cal_str, ((margin, y), (W - 2 * margin, field_h)))
-        cv.addSubview_(self._cal_field)
-        y -= row_gap + sep_gap
+        selected_ids = set(self._settings.get("calendars", ["primary"]))
+        self._calendar_checkboxes = []
+        scroll_h = 120
+        if self._available_calendars:
+            # Scrollable list of checkboxes
+            scroll_w = W - 2 * margin
+            inner_w = scroll_w - 16  # leave room for scrollbar
+            doc_h = max(len(self._available_calendars) * (cb_h + row_gap), scroll_h)
+            doc_view = AppKit.NSView.alloc().initWithFrame_(((0, 0), (inner_w, doc_h)))
+            dot_size = 12
+            dot_gap = 6
+            cb_x = 4 + dot_size + dot_gap
+            cy = doc_h  # build top-to-bottom in flipped coords (y=0 is bottom in AppKit)
+            for cal in self._available_calendars:
+                cy -= cb_h
+                is_checked = cal["id"] in selected_ids
+                # Colored dot
+                swatch = _make_color_swatch_view(cal.get("color", ""), dot_size)
+                if swatch:
+                    dot_y = cy + (cb_h - dot_size) // 2
+                    swatch.setFrame_(((4, dot_y), (dot_size, dot_size)))
+                    doc_view.addSubview_(swatch)
+                # Checkbox with plain name (dot provides the color)
+                label = cal.get("name", cal["id"])
+                cb = self._checkbox(label, is_checked, ((cb_x, cy), (inner_w - cb_x, cb_h)))
+                doc_view.addSubview_(cb)
+                self._calendar_checkboxes.append((cal["id"], cb))
+                cy -= row_gap
+            y -= scroll_h
+            scroll = AppKit.NSScrollView.alloc().initWithFrame_(((margin, y), (scroll_w, scroll_h)))
+            scroll.setHasVerticalScroller_(True)
+            scroll.setHasHorizontalScroller_(False)
+            scroll.setBorderType_(AppKit.NSBezelBorder)
+            scroll.setAutohidesScrollers_(True)
+            scroll.setDocumentView_(doc_view)
+            # Scroll to top so first calendar is visible
+            doc_view.scrollPoint_(AppKit.NSMakePoint(0, doc_h))
+            cv.addSubview_(scroll)
+            y -= row_gap
+        else:
+            # Fallback: text field when calendars could not be fetched
+            y -= field_h
+            cal_str = ", ".join(self._settings.get("calendars", ["primary"]))
+            self._cal_field = self._field(cal_str, ((margin, y), (W - 2 * margin, field_h)))
+            cv.addSubview_(self._cal_field)
+            y -= row_gap
+        y -= sep_gap
 
         cv.addSubview_(self._separator(y))
         y -= 1 + sec_gap
@@ -372,7 +460,13 @@ class SettingsWindowController:
             self._app_field.setStringValue_(path)
 
     def save(self):
-        calendars = [c.strip() for c in self._cal_field.stringValue().split(",") if c.strip()]
+        if self._calendar_checkboxes:
+            calendars = [
+                cal_id for cal_id, cb in self._calendar_checkboxes
+                if cb.state() == AppKit.NSControlStateValueOn
+            ]
+        else:
+            calendars = [c.strip() for c in self._cal_field.stringValue().split(",") if c.strip()]
         notifications = []
         for row in self._notification_rows:
             try:
@@ -405,8 +499,8 @@ class SettingsWindowController:
         AppKit.NSApp.runModalForWindow_(self._window)
 
 
-def _make_settings_controller(settings, on_save):
-    return SettingsWindowController(settings, on_save)
+def _make_settings_controller(settings, on_save, available_calendars=None):
+    return SettingsWindowController(settings, on_save, available_calendars)
 
 
 class Vince(rumps.App):
@@ -419,6 +513,8 @@ class Vince(rumps.App):
         self.settings = self.load_settings()
         self.current_events = []
         self.creds = None
+        self._calendar_colors = {}   # cal_id -> hex color string
+        self._event_color_defs = {}  # colorId str -> hex color string
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
         self._check_for_update()
 
@@ -534,6 +630,21 @@ class Vince(rumps.App):
         # gets all todays' event from calendar
         try:
             service = build("calendar", "v3", credentials=self.creds)
+            # Refresh calendar and event color definitions if not yet populated
+            if not self._calendar_colors:
+                try:
+                    cal_list = service.calendarList().list().execute()
+                    for item in cal_list.get("items", []):
+                        self._calendar_colors[item["id"]] = item.get("backgroundColor", "")
+                except Exception as e:
+                    logging.debug(f"Could not fetch calendar colors: {e}")
+            if not self._event_color_defs:
+                try:
+                    color_defs = service.colors().get().execute()
+                    for cid, cdata in color_defs.get("event", {}).items():
+                        self._event_color_defs[cid] = cdata.get("background", "")
+                except Exception as e:
+                    logging.debug(f"Could not fetch event color definitions: {e}")
             # Get today's date and format it
             today = datetime.combine(date.today(), datetime.min.time())
             # Retrieve events for today
@@ -611,6 +722,8 @@ class Vince(rumps.App):
                                 eventType=event["eventType"],
                                 visibility=event.get("visibility", "default"),
                                 attendee_response=response_status,
+                                calendar_id=calendar,
+                                color_id=event.get("colorId", ""),
                             )
                             d_events.append(d_event)
             # Add an event that ends in 5 minutes and 5 seconds
@@ -650,7 +763,6 @@ class Vince(rumps.App):
         current_is_now = False
         previous_is_now = False
         for item in self.menu_items:
-            print(item)
             previous_is_now = current_is_now
             current_is_now = False
             extra = ""
@@ -658,8 +770,14 @@ class Vince(rumps.App):
                 extra = "👤"
             if not item["url"]:
                 extra += " ⛓️‍💥"
-            # if there's a meet link it adds the link and the "clicking option"
-            # otherwise the item cannot be clicked. and it look disable.
+
+            cal_id = item.get("calendar_id", "")
+            color_id = item.get("color_id", "")
+            if color_id and color_id in self._event_color_defs:
+                cal_color = self._event_color_defs[color_id]
+            else:
+                cal_color = self._calendar_colors.get(cal_id, "")
+            cal_name = ""
 
             # if it's coming it tells how much time left
             if item["start"] > current_datetime + timedelta(minutes=1):
@@ -668,22 +786,25 @@ class Vince(rumps.App):
                 if item.get("attendee_response", "") == "tentative":
                     icon = "❓"
                 menu_item = rumps.MenuItem(
-                    title=f"{icon} {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}"
+                    title=f"{icon} {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d}) {item['summary']}{cal_name}"
                 )
             elif item["end"] < current_datetime:
                 hours, minutes = self._time_left(
                     current_datetime, item["end"], end_time=True
                 )
-
                 menu_item = rumps.MenuItem(
-                    title=f"☑️ {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d} ago) {item['summary']}"
+                    title=f"☑️ {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}]({hours:02d}:{minutes:02d} ago) {item['summary']}{cal_name}"
                 )
             else:
                 # if it's current, does not print time
                 current_is_now = True
                 menu_item = rumps.MenuItem(
-                    title=f"⭐️ {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}"
+                    title=f"⭐️ {extra} [{item['start'].strftime('%H:%M')}-{item['end'].strftime('%H:%M')}](now) {item['summary']}{cal_name}"
                 )
+            # Set exact calendar color as dot image on the menu item
+            dot = _make_color_dot_image(cal_color)
+            if dot:
+                menu_item._menuitem.setImage_(dot)
             if item["url"]:
                 menu_item.urls = item["urls"]
                 menu_item.set_callback(self.open_browser)
@@ -829,7 +950,6 @@ class Vince(rumps.App):
         if not self.creds:
             return
         if self.settings["show_menu_bar"]:
-            # updates the bar
             if self.menu_items:
                 current_datetime = datetime.now(pytz.utc)
                 current_events = self._get_current_events()
@@ -837,39 +957,27 @@ class Vince(rumps.App):
                 title = ""
                 len_current_events = len(current_events)
                 i_current_events = 0
-                # first all the current, with time left
                 for event in current_events:
                     prefix = ""
                     if event.get("attendee_response", "") == "tentative":
                         prefix = "❓ "
-                    hours, minutes, seconds = self._time_left(
-                        event["end"], current_datetime, True
-                    )
+                    hours, minutes, seconds = self._time_left(event["end"], current_datetime, True)
                     summary = prefix + event["summary"]
-                    # if not event or len(event["attendees"]) <= 1:
-                    #     summary = "👤"
                     if hours > 0 or minutes > 15:
-                        title += (
-                            f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}"
-                        )
+                        title += f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}"
                     else:
                         title += f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
                     i_current_events += 1
-                    # separated with comma if more than one
                     if i_current_events < len_current_events:
                         title += ", "
                 if current_events != self.current_events:
                     if not current_events:
                         self.dnd(None)
                     else:
-                        event = sorted(current_events, key=lambda x: x["end"])[0]
-                        self.dnd(event)
-
+                        self.dnd(sorted(current_events, key=lambda x: x["end"])[0])
                     self.current_events = current_events
-                    # get the shortest one and update with taht data
                 len_next_events = len(next_events)
                 i_next_events = 0
-                # and upcoming with thime left before the start
                 if len_next_events:
                     title += " ["
                 for event in next_events:
@@ -884,14 +992,11 @@ class Vince(rumps.App):
                         title += ", "
                 if len_next_events:
                     title += "]"
-                if len(title) > MAX_LENGHT:
-                    self.title = f"..."
-                else:
-                    self.title = title
+                self.title = "..." if len(title) > MAX_LENGHT else title
             else:
-                self.title = f""
+                self.title = ""
         else:
-            self.title = f""
+            self.title = ""
 
     def _str_event_menu_current(self, element):
         # create the items in the menu. util function
@@ -1144,8 +1249,36 @@ class Vince(rumps.App):
         with open(settings_path, "w") as settings_file:
             json.dump(self.settings, settings_file, indent=4)
 
+    def _fetch_available_calendars(self):
+        if not self.creds:
+            return None
+        try:
+            service = build("calendar", "v3", credentials=self.creds)
+            result = service.calendarList().list().execute()
+            calendars = []
+            for item in result.get("items", []):
+                cal = {
+                    "id": item["id"],
+                    "name": item.get("summary", item["id"]),
+                    "color": item.get("backgroundColor", ""),
+                }
+                calendars.append(cal)
+                self._calendar_colors[item["id"]] = item.get("backgroundColor", "")
+            return calendars or None
+        except Exception as e:
+            logging.debug(f"Could not fetch calendar list: {e}")
+            return None
+
+    def _event_color(self, event):
+        """Return the effective hex color for an event (event-level override or calendar color)."""
+        color_id = event.get("color_id", "")
+        if color_id and color_id in self._event_color_defs:
+            return self._event_color_defs[color_id]
+        return self._calendar_colors.get(event.get("calendar_id", ""), "")
+
     def open_settings_window(self, _):
-        self._settings_controller = _make_settings_controller(self.settings, self._on_settings_save)
+        available_calendars = self._fetch_available_calendars()
+        self._settings_controller = _make_settings_controller(self.settings, self._on_settings_save, available_calendars)
         self._settings_controller.show()
 
     def _on_settings_save(self, new_settings):
