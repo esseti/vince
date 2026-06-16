@@ -1,4 +1,14 @@
 
+## [3.2.0] - 2026-06-16
+
+### Miscellaneous
+- Update changelog for 3.1.0
+
+
+### Other
+- Timeouts in case of no internet
+
+
 ## [3.1.0] - 2026-05-15
 
 ### Miscellaneous
