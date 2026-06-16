@@ -23,7 +23,13 @@ import urllib.request
 import AppKit
 import threading
 import plistlib
+import socket
 import pathlib as _pathlib
+
+# Prevent the whole app from freezing after macOS sleep/wake: stale half-open
+# sockets make blocking network calls (Google API .execute(), urlopen) hang
+# forever on the main thread. A default timeout makes them fail fast instead.
+socket.setdefaulttimeout(15)
 
 
 def _get_bundle_version() -> str:
@@ -512,6 +518,7 @@ class Vince(rumps.App):
         self.demo = demo
         self.settings = self.load_settings()
         self.current_events = []
+        self.menu_items = []  # populated by load_events; init empty so timers don't crash before first load
         self.creds = None
         self._calendar_colors = {}   # cal_id -> hex color string
         self._event_color_defs = {}  # colorId str -> hex color string
