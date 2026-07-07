@@ -524,6 +524,17 @@ class Vince(rumps.App):
         self._event_color_defs = {}  # colorId str -> hex color string
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
         self._check_for_update()
+        # macOS suspends timers while asleep; without this, events stay stale
+        # until the next periodic timer fires (up to 7.5 min after waking).
+        AppKit.NSWorkspace.sharedWorkspace().notificationCenter().addObserver_selector_name_object_(
+            self, "onWake:", AppKit.NSWorkspaceDidWakeNotification, None
+        )
+
+    def onWake_(self, notification):
+        logging.debug("System woke from sleep, forcing event reload")
+        if self.creds and self._has_internet():
+            self.load_events()
+            self.build_menu()
 
     def _check_for_update(self):
         def _worker():
@@ -610,6 +621,9 @@ class Vince(rumps.App):
     @rumps.timer(90 * 5)
     def timely_load_events(self, _):
         if not self.creds:
+            return
+        if not self._has_internet():
+            logging.debug("No internet, skipping scheduled reload")
             return
         self.load_events()
 
@@ -743,6 +757,10 @@ class Vince(rumps.App):
             self.menu_items = d_events
         except HttpError as err:
             logging.debug(err)
+        except Exception as e:
+            # network hiccup (e.g. right after sleep/wake) - keep old menu_items,
+            # next timer tick or wake notification retries.
+            logging.debug(f"load_events failed, will retry: {e}")
 
     def extract_urls(self, text):
         # # Regular expression pattern to match URLs
