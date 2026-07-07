@@ -1,4 +1,19 @@
 
+## [3.3.0] - 2026-07-07
+
+### Bug Fixes
+- Fixing on wake to reload events
+
+
+
+### Miscellaneous
+- Update changelog for 3.2.0
+
+
+### Other
+- Merge branch 'main' of github.com:esseti/vince
+
+
 ## [3.2.0] - 2026-06-16
 
 ### Miscellaneous
