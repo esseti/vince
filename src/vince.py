@@ -60,6 +60,54 @@ def str_truncate(string, width):
     return string
 
 
+COMPACT_SCREEN_WIDTH_THRESHOLD = 1440  # points; fallback if built-in/external can't be determined
+
+
+def _primary_screen():
+    """Screen holding the menu bar (index 0 by AppKit convention)."""
+    screens = AppKit.NSScreen.screens()
+    if not screens:
+        return None
+    return screens[0]
+
+
+def _is_builtin_screen(screen):
+    """True if the given NSScreen is the Mac's built-in (notebook) display."""
+    try:
+        import Quartz
+    except ImportError:
+        return None
+    number = screen.deviceDescription().get("NSScreenNumber")
+    if number is None:
+        return None
+    try:
+        # PyObjC hands back an NSNumber; CGDirectDisplayID is a plain uint32
+        display_id = number.integerValue() if hasattr(number, "integerValue") else int(number)
+        return bool(Quartz.CGDisplayIsBuiltin(display_id))
+    except Exception:
+        logging.debug("Could not determine if screen is built-in", exc_info=True)
+        return None
+
+
+def is_compact_mode(settings):
+    mode = settings.get("compact_menu_bar", "auto")
+    if mode == "always":
+        return True
+    if mode == "never":
+        return False
+    screen = _primary_screen()
+    if screen is None:
+        return False
+    builtin = _is_builtin_screen(screen)
+    if builtin is not None:
+        # Built-in notebook display: physically small, always go compact.
+        # External monitor: assume enough real estate, stay normal.
+        return builtin
+    # Fallback when built-in/external can't be determined: use screen width.
+    width = screen.frame().size.width
+    return width < COMPACT_SCREEN_WIDTH_THRESHOLD
+
+
 def _parse_hex_color(hex_color):
     """Return (r, g, b) floats 0-1 from a hex string, or None on failure."""
     if not hex_color or not hex_color.startswith("#") or len(hex_color) < 7:
@@ -177,6 +225,14 @@ class SettingsWindowController:
         v.setFont_(AppKit.NSFont.systemFontOfSize_(13))
         return v
 
+    def _popup(self, options, selected, frame):
+        v = AppKit.NSPopUpButton.alloc().initWithFrame_pullsDown_(frame, False)
+        v.addItemsWithTitles_(options)
+        if selected in options:
+            v.selectItemWithTitle_(selected)
+        v.setFont_(AppKit.NSFont.systemFontOfSize_(13))
+        return v
+
     def _separator(self, y):
         box = AppKit.NSBox.alloc().initWithFrame_(((0, y), (self._W, 1)))
         box.setBoxType_(AppKit.NSBoxSeparator)
@@ -207,6 +263,7 @@ class SettingsWindowController:
             + 15 + 6                    # GENERAL header
             + cb_h + row_gap            # Launch at login
             + cb_h + row_gap            # Show countdown
+            + field_h + row_gap         # Compact menu bar
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # CALENDAR header
             + 120 + row_gap             # scroll view (fixed height) or fallback field
@@ -259,6 +316,27 @@ class SettingsWindowController:
             ((margin, y), (W - 2 * margin, cb_h)),
         )
         cv.addSubview_(self._bar_cb)
+        y -= row_gap
+
+        y -= field_h
+        lbl_w = 130
+        cv.addSubview_(self._label("Compact menu bar:", ((margin, y + 3), (lbl_w, 16))))
+        self._compact_options = ["Auto (small screens)", "Always", "Never"]
+        self._compact_values = {
+            "Auto (small screens)": "auto",
+            "Always": "always",
+            "Never": "never",
+        }
+        current_compact = self._settings.get("compact_menu_bar", "auto")
+        current_label = next(
+            (label for label, value in self._compact_values.items() if value == current_compact),
+            "Auto (small screens)",
+        )
+        self._compact_popup = self._popup(
+            self._compact_options, current_label,
+            ((margin + lbl_w + 8, y), (W - 2 * margin - lbl_w - 8, field_h)),
+        )
+        cv.addSubview_(self._compact_popup)
         y -= sep_gap
 
         cv.addSubview_(self._separator(y))
@@ -482,6 +560,9 @@ class SettingsWindowController:
             "calendars": calendars or ["primary"],
             "link_opening_enabled": self._link_cb.state() == AppKit.NSControlStateValueOn,
             "show_menu_bar": self._bar_cb.state() == AppKit.NSControlStateValueOn,
+            "compact_menu_bar": self._compact_values.get(
+                self._compact_popup.titleOfSelectedItem(), "auto"
+            ),
             "launch_at_login": self._login_cb.state() == AppKit.NSControlStateValueOn,
             "app_meet": self._app_field.stringValue(),
             "notifications": notifications,
@@ -951,6 +1032,8 @@ class Vince(rumps.App):
             return
         if self.settings["show_menu_bar"]:
             if self.menu_items:
+                compact = is_compact_mode(self.settings)
+                name_width = 6 if compact else 20
                 current_datetime = datetime.now(pytz.utc)
                 current_events = self._get_current_events()
                 next_events = self._get_next_events()
@@ -963,10 +1046,10 @@ class Vince(rumps.App):
                         prefix = "❓ "
                     hours, minutes, seconds = self._time_left(event["end"], current_datetime, True)
                     summary = prefix + event["summary"]
-                    if hours > 0 or minutes > 15:
-                        title += f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}"
+                    if hours > 0 or minutes > 15 or compact:
+                        title += f" {str_truncate(summary, name_width)}: {hours:02d}:{minutes:02d}"
                     else:
-                        title += f" {str_truncate(summary, 20)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
+                        title += f" {str_truncate(summary, name_width)}: {hours:02d}:{minutes:02d}:{seconds:02d}"
                     i_current_events += 1
                     if i_current_events < len_current_events:
                         title += ", "
@@ -977,21 +1060,27 @@ class Vince(rumps.App):
                         self.dnd(sorted(current_events, key=lambda x: x["end"])[0])
                     self.current_events = current_events
                 len_next_events = len(next_events)
-                i_next_events = 0
-                if len_next_events:
-                    title += " ["
-                for event in next_events:
-                    if not event or len(event["attendees"]) <= 1:
-                        title += " 👤"
-                    if event.get("attendee_response", "") == "tentative":
-                        title += "❓ "
-                    hours, minutes = self._time_left(event["start"], current_datetime)
-                    title += f"{str_truncate(event['summary'], 20)}: in {hours:02d}:{minutes:02d}"
-                    i_next_events += 1
-                    if i_next_events < len_next_events:
-                        title += ", "
-                if len_next_events:
-                    title += "]"
+                if compact:
+                    if len_next_events:
+                        hours, minutes = self._time_left(next_events[0]["start"], current_datetime)
+                        count_suffix = f" +{len_next_events}" if len_next_events > 1 else ""
+                        title += f" [→{hours:02d}:{minutes:02d}{count_suffix}]"
+                else:
+                    i_next_events = 0
+                    if len_next_events:
+                        title += " ["
+                    for event in next_events:
+                        if not event or len(event["attendees"]) <= 1:
+                            title += " 👤"
+                        if event.get("attendee_response", "") == "tentative":
+                            title += "❓ "
+                        hours, minutes = self._time_left(event["start"], current_datetime)
+                        title += f"{str_truncate(event['summary'], name_width)}: in {hours:02d}:{minutes:02d}"
+                        i_next_events += 1
+                        if i_next_events < len_next_events:
+                            title += ", "
+                    if len_next_events:
+                        title += "]"
                 self.title = "..." if len(title) > MAX_LENGHT else title
             else:
                 self.title = ""
@@ -1225,6 +1314,7 @@ class Vince(rumps.App):
             "calendars": ["primary"],
             "link_opening_enabled": True,
             "show_menu_bar": True,
+            "compact_menu_bar": "auto",
             "app_meet": "",
             "launch_at_login": True,
             "notifications": [
