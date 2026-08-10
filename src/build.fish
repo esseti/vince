@@ -1,4 +1,4 @@
 #!/bin/bash
 rm -rf dist/
 rm -rf build/
-python setup.py py2app --includes imp
+python setup.py py2app

@@ -36,10 +36,10 @@ jobs:
         working-directory: src
         run: |
           rm -rf build/ dist/
-          python setup.py py2app --includes imp
+          python setup.py py2app
 
       - name: Zip app
-        run: cd src/dist && zip -r ../../VInce.zip VInce.app
+        run: cd src/dist && zip -r ../../Vince.zip Vince.app
 
       - name: Install git-cliff
         run: |
@@ -64,4 +64,4 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "Vince ${{ github.ref_name }}"
           body_path: RELEASE_NOTES.md
-          files: VInce.zip
+          files: Vince.zip
