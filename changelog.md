@@ -1,4 +1,9 @@
 
+## [3.4.1] - 2026-08-10
+
+### Bug Fixes
+- Bundle _cffi_backend so the packaged app actually launches
+
 ## [3.4.0] - 2026-08-10
 
 ### Bug Fixes
