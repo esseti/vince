@@ -1,4 +1,24 @@
 
+## [3.4.0] - 2026-08-10
+
+### Bug Fixes
+- Skip release changelog-bot commit from changelog groups
+
+
+### Miscellaneous
+- Update changelog for 3.3.0
+
+
+### Other
+- Merge tag '3.1.0' into develop
+
+add colors to events
+
+- Size when display is small
+
+- Merge branch 'develop'
+
+
 ## [3.3.0] - 2026-07-07
 
 ### Bug Fixes
