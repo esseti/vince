@@ -11,6 +11,7 @@ import calendar
 import re
 import warnings
 from countdown_window import CountdownWindow
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -601,6 +602,7 @@ class Vince(rumps.App):
         self.current_events = []
         self.menu_items = []  # populated by load_events; init empty so timers don't crash before first load
         self.creds = None
+        self._reload_pending = False  # set on wake; cleared once a reload succeeds
         self._calendar_colors = {}   # cal_id -> hex color string
         self._event_color_defs = {}  # colorId str -> hex color string
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
@@ -613,8 +615,18 @@ class Vince(rumps.App):
 
     def onWake_(self, notification):
         logging.debug("System woke from sleep, forcing event reload")
-        if self.creds and self._has_internet():
-            self.load_events()
+        # network is usually not up yet right after wake: don't try inline,
+        # let the retry timer reload as soon as it is.
+        self._reload_pending = True
+
+    @rumps.timer(10)
+    def _retry_reload(self, _):
+        if not self._reload_pending or not self.creds:
+            return
+        if not self._has_internet():
+            return
+        if self.load_events():
+            self._reload_pending = False
             self.build_menu()
 
     def _check_for_update(self):
@@ -653,9 +665,9 @@ class Vince(rumps.App):
 
     def _has_internet(self):
         try:
-            urllib.request.urlopen("https://www.google.com")
+            urllib.request.urlopen("https://www.google.com", timeout=5).close()
             return True
-        except urllib.error.URLError:
+        except OSError:  # URLError, timeouts, connection resets
             return False
 
     @rumps.timer(5)
@@ -706,7 +718,8 @@ class Vince(rumps.App):
         if not self._has_internet():
             logging.debug("No internet, skipping scheduled reload")
             return
-        self.load_events()
+        if not self.load_events():
+            self._reload_pending = True
 
     # In demo mode popups fire 5 s before start instead of 60 s
     DEMO_POPUP_THRESHOLD_SECONDS = 5
@@ -728,7 +741,7 @@ class Vince(rumps.App):
     def load_events(self):
         if self.demo:
             self.menu_items = self._fake_events()
-            return
+            return True
         # gets all todays' event from calendar
         try:
             service = build("calendar", "v3", credentials=self.creds)
@@ -752,7 +765,9 @@ class Vince(rumps.App):
             # Retrieve events for today
 
             d_events = []
-            for calendar in self.settings.get("calendars", ["primary"]):
+            ok_calendars = 0
+            calendars = self.settings.get("calendars", ["primary"])
+            for calendar in calendars:
                 try:
                     events_result = (
                         service.events()
@@ -771,6 +786,9 @@ class Vince(rumps.App):
                     )
 
                     events = events_result.get("items", [])
+                    ok_calendars += 1
+                except RefreshError:
+                    raise
                 except Exception as e:
                     logging.debug(e)
                     events = None
@@ -833,15 +851,27 @@ class Vince(rumps.App):
             if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
                 d_events.extend(self._fake_events())
 
+            if calendars and not ok_calendars:
+                # every fetch failed (network down after wake): keep old
+                # menu_items instead of wiping them, caller retries.
+                return False
+
             d_events = sorted(d_events, key=lambda d: d["start"])
 
             self.menu_items = d_events
+            return True
+        except RefreshError as e:
+            # token expired/revoked (e.g. after days asleep): drop creds so
+            # _load re-authenticates instead of failing silently forever.
+            logging.debug(f"credentials refresh failed, re-authenticating: {e}")
+            self.creds = None
         except HttpError as err:
             logging.debug(err)
         except Exception as e:
             # network hiccup (e.g. right after sleep/wake) - keep old menu_items,
-            # next timer tick or wake notification retries.
+            # retried by the reload timers.
             logging.debug(f"load_events failed, will retry: {e}")
+        return False
 
     def extract_urls(self, text):
         # # Regular expression pattern to match URLs
