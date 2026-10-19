@@ -827,19 +827,20 @@ class Vince(rumps.App):
                                     event_url = urls[0]
                             else:
                                 urls.append(event_url)
+                            summary = event.get("summary") or "(No title)"
                             logging.debug(
-                                f"{event['summary']} | {event.get('description', '')}  | {event_url}"
+                                f"{summary} | {event.get('description', '')}  | {event_url}"
                             )
 
                             d_event = dict(
                                 id=id,
                                 start=start,
                                 end=end,
-                                summary=event["summary"],
+                                summary=summary,
                                 url=event_url,
                                 attendees=attendees,
                                 urls=urls,
-                                eventType=event["eventType"],
+                                eventType=event.get("eventType", "default"),
                                 visibility=event.get("visibility", "default"),
                                 attendee_response=response_status,
                                 calendar_id=calendar,
