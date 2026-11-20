@@ -1,4 +1,14 @@
 
+## [3.5.0] - 2026-11-20
+
+### Bug Fixes
+- Resync reliably after long sleep
+- Don't drop all events when one has no title
+
+
+### Features
+- Focus guard nudges you when Meet or docs cover the call
+
 ## [3.4.1] - 2026-08-10
 
 ### Bug Fixes
