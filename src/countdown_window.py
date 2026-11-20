@@ -101,6 +101,7 @@ class CountdownWindow:
         event_name_label.setTextColor_(AppKit.NSColor.blackColor())
         event_name_label.setStringValue_(self.event["summary"])
         content_view.addSubview_(event_name_label)
+        self.event_name_label = event_name_label
 
         # Add close button
         button_size = 20
@@ -209,11 +210,50 @@ class CountdownWindow:
 
         self.visual_effect.layer().setBackgroundColor_(color.CGColor())
 
+    def set_distracted(self, on):
+        # red blinking border while distracted
+        if on and not getattr(self, "blink_timer", None):
+            self._blink_on = False
+            self.blink_timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                0.5, self, "blinkCallback:", None, True
+            )
+            AppKit.NSRunLoop.currentRunLoop().addTimer_forMode_(
+                self.blink_timer, AppKit.NSRunLoopCommonModes
+            )
+        elif not on:
+            if getattr(self, "blink_timer", None):
+                self.blink_timer.invalidate()
+                self.blink_timer = None
+            self._set_border(False)
+
+    def blinkCallback_(self, _):
+        self._blink_on = not self._blink_on
+        self._set_border(self._blink_on)
+
+    def _set_border(self, visible):
+        if not self.window:
+            return
+        layer = self.visual_effect.layer()
+        layer.setBorderWidth_(4.0 if visible else 0.0)
+        layer.setBorderColor_(AppKit.NSColor.redColor().CGColor())
+
+    def show_nudge(self, text="Back to the call"):
+        self.event_name_label.setStringValue_(text)
+        t = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+            3.0, self, "restoreName:", None, False
+        )
+        AppKit.NSRunLoop.currentRunLoop().addTimer_forMode_(t, AppKit.NSRunLoopCommonModes)
+
+    def restoreName_(self, _):
+        if self.window:
+            self.event_name_label.setStringValue_(self.event["summary"])
+
     def show(self):
         # Show the window
         self.window.makeKeyAndOrderFront_(self.window)
 
     def close(self):
+        self.set_distracted(False)
         if self.timer:
             self.timer.invalidate()
             self.timer = None

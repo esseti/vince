@@ -10,6 +10,8 @@ import requests
 import calendar
 import re
 import warnings
+import time
+import focus_guard
 from countdown_window import CountdownWindow
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
@@ -277,6 +279,8 @@ class SettingsWindowController:
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # MEETINGS header
             + cb_h + row_gap            # Open links
+            + cb_h + row_gap            # Focus guard
+            + 14 + row_gap              # Focus guard hint
             + field_h + row_gap         # Meeting app row
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # NOTIFICATIONS header
@@ -417,6 +421,20 @@ class SettingsWindowController:
             ((margin, y), (W - 2 * margin, cb_h)),
         )
         cv.addSubview_(self._link_cb)
+        y -= row_gap
+
+        y -= cb_h
+        self._focus_cb = self._checkbox(
+            "Focus guard: nudge me if Meet/docs cover the call",
+            self._settings.get("focus_guard", False),
+            ((margin, y), (W - 2 * margin, cb_h)),
+        )
+        cv.addSubview_(self._focus_cb)
+        y -= row_gap
+        y -= 14
+        cv.addSubview_(self._label(
+            "Best with Screen Recording allowed for Vince (System Settings → Privacy).",
+            ((margin + 18, y), (W - 2 * margin - 18, 14)), small=True, secondary=True))
         y -= row_gap
 
         # Meeting app row: label + field + Browse button
@@ -572,6 +590,7 @@ class SettingsWindowController:
             ),
             "launch_at_login": self._login_cb.state() == AppKit.NSControlStateValueOn,
             "app_meet": self._app_field.stringValue(),
+            "focus_guard": self._focus_cb.state() == AppKit.NSControlStateValueOn,
             "notifications": notifications,
         }
         self._window.orderOut_(None)
@@ -605,6 +624,11 @@ class Vince(rumps.App):
         self._reload_pending = False  # set on wake; cleared once a reload succeeds
         self._calendar_colors = {}   # cal_id -> hex color string
         self._event_color_defs = {}  # colorId str -> hex color string
+        self.distracted = False
+        self._distract_hits = 0
+        self._distracted_since = 0
+        self._notified = False
+        self._nudged = {}  # event id -> last nudge epoch
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
         self._check_for_update()
         # macOS suspends timers while asleep; without this, events stay stale
@@ -735,7 +759,7 @@ class Vince(rumps.App):
         s3 = e2 + timedelta(seconds=10)
         e3 = s3 + timedelta(seconds=40)
         def ev(i, s, e):
-            return {"id": f"demo_{i}", "start": s, "end": e, "summary": f"Demo event {i}", "url": "", "attendees": [], "urls": [], "eventType": "default", "visibility": "default", "attendee_response": "accepted"}
+            return {"id": f"demo_{i}", "start": s, "end": e, "summary": f"Demo event {i}", "url": "https://meet.google.com/demo", "attendees": [], "urls": [], "attachments": [], "eventType": "default", "visibility": "default", "attendee_response": "accepted"}
         return [ev(1, s1, e1), ev(2, s2, e2), ev(3, s3, e3)]
 
     def load_events(self):
@@ -845,6 +869,7 @@ class Vince(rumps.App):
                                 attendee_response=response_status,
                                 calendar_id=calendar,
                                 color_id=event.get("colorId", ""),
+                                attachments=[a.get("title", "") for a in event.get("attachments", [])],
                             )
                             d_events.append(d_event)
             # Add an event that ends in 5 minutes and 5 seconds
@@ -1138,6 +1163,8 @@ class Vince(rumps.App):
                     if len_next_events:
                         title += "]"
                 self.title = "..." if len(title) > MAX_LENGHT else title
+                if self.distracted:
+                    self.title += " 🔴"
             else:
                 self.title = ""
         else:
@@ -1220,6 +1247,50 @@ class Vince(rumps.App):
                 }
                 self.countdown_windows[event["id"]]["window"].start_countdown()
                 self.countdown_windows[event["id"]]["window"].show()
+
+    @rumps.timer(2)
+    def focus_check(self, _):
+        event = None
+        if self.settings.get("focus_guard"):
+            event = next(
+                (e for e in self._get_current_events() if focus_guard.has_meet(e)), None
+            )
+        hit = False
+        if event:
+            try:
+                windows, front, has_titles, screen = focus_guard.snapshot()
+                hit = focus_guard.is_distracted(
+                    windows, front, has_titles, screen, event, self.settings.get("app_meet", "")
+                )
+            except Exception:
+                logging.debug("focus check failed", exc_info=True)
+        if self.settings.get("focus_guard"):
+            logging.debug(f"focus_check: event={event and event['summary']} hit={hit}")
+        # debounce: 2 consecutive hits to raise, clear at once
+        self._distract_hits = self._distract_hits + 1 if hit else 0
+        distracted = self._distract_hits >= 2
+        if distracted and not self.distracted:
+            self._distracted_since = time.time()
+            self._notified = False
+        if distracted and not self._notified and time.time() - self._distracted_since >= 30:
+            self._notified = True
+            rumps.notification(
+                title="Focus",
+                subtitle=event["summary"],
+                message="Back to the call?",
+                sound=False,
+            )
+        if distracted == self.distracted:
+            return
+        self.distracted = distracted
+        nudge = distracted and time.time() - self._nudged.get(event["id"], 0) > 300
+        if nudge:
+            self._nudged[event["id"]] = time.time()
+        for entry in self.countdown_windows.values():
+            if not entry["closed"] and entry["window"].window:
+                entry["window"].set_distracted(distracted)
+                if nudge:
+                    entry["window"].show_nudge()
 
     def force_popup(self, _):
         current_events = self._get_current_events()
@@ -1372,6 +1443,7 @@ class Vince(rumps.App):
             "show_menu_bar": True,
             "compact_menu_bar": "auto",
             "app_meet": "",
+            "focus_guard": False,
             "launch_at_login": True,
             "notifications": [
                 {"time_left": 5, "sound": False},

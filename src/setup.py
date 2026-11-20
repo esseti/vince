@@ -13,7 +13,7 @@ DATA_FILES = [("", ["credentials.json", "icon.png", "menu-icon.png"])]
 
 OPTIONS = {
     "argv_emulation": False,
-    "includes": ["imp", "_cffi_backend"],
+    "includes": ["imp", "_cffi_backend", "Quartz"],
     "plist": {
         "LSUIElement": True,
         "CFBundleName": "Vince",
