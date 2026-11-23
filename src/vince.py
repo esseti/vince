@@ -425,7 +425,7 @@ class SettingsWindowController:
 
         y -= cb_h
         self._focus_cb = self._checkbox(
-            "Focus guard: nudge me if Meet/docs cover the call",
+            "Focus guard: nudge me if I leave the call (Meet/docs are ok)",
             self._settings.get("focus_guard", False),
             ((margin, y), (W - 2 * margin, cb_h)),
         )
@@ -434,7 +434,7 @@ class SettingsWindowController:
         y -= 28
         hint = self._label(
             "✓ Screen Recording allowed" if focus_guard.has_screen_access()
-            else "⚠ Screen Recording not allowed: Google Docs/Meet titles not detected. "
+            else "⚠ Screen Recording not allowed: browser tab titles not detected. "
             "Allow Vince in System Settings → Privacy & Security, then restart.",
             ((margin + 18, y), (W - 2 * margin - 18, 28)), small=True, secondary=True)
         hint.setLineBreakMode_(AppKit.NSLineBreakByWordWrapping)
@@ -1267,12 +1267,14 @@ class Vince(rumps.App):
                     windows, front, has_titles, screen, event, self.settings.get("app_meet", "")
                 )
                 logging.debug(
-                    f"focus_check: titles={has_titles} front={front!r} "
-                    + str([(w["owner"], w["title"][:40], w["layer"], int(w["w"]), int(w["h"]))
+                    f"focus_check: titles={has_titles} front={front!r} front_windows="
+                    + str([(w["title"][:50], w["layer"], int(w["w"]), int(w["h"]))
+                           for w in windows if w["owner"] == front][:5])
+                    + " floating="
+                    + str([(w["owner"], w["title"][:30], w["layer"], int(w["w"]), int(w["h"]))
                            for w in windows
-                           if w["owner"] not in focus_guard.OWN_APPS
-                           and w["owner"] != "Window Server"
-                           and (w["owner"] == front or w["layer"] > 0)][:5])
+                           if 0 < w["layer"] < 1000 and w["owner"] not in focus_guard.OWN_APPS
+                           and w["owner"] not in ("Window Server", "Dock", "Thaw", "Notification Center", "MenuBarAgent", "Micro Snitch")][:5])
                 )
             except Exception:
                 logging.debug("focus check failed", exc_info=True)

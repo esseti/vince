@@ -4,9 +4,8 @@ import re
 
 BROWSERS = ("Google Chrome", "Safari", "Arc", "Firefox", "Microsoft Edge", "Brave Browser")
 OWN_APPS = ("Vince", "Python")
-DOC_TITLE = re.compile(r"Google (Docs|Sheets|Slides)", re.I)
-# shortcut: coarse PiP size guess without window titles, tune if false positives
-PIP_MAX_W, PIP_MAX_H = 640, 400
+DOC_TITLE = re.compile(r"Google (Docs|Sheets|Slides)|Fogli Google|Documenti Google|Presentazioni Google", re.I)
+MEET_TITLE = re.compile(r"^\W*Meet\b|meet\.google\.com", re.I)
 
 
 def has_meet(event):
@@ -59,31 +58,23 @@ def snapshot():
 
 
 def is_distracted(windows, frontmost, has_titles, screen, event, app_meet=""):
-    """True if, during a Meet event, Meet floats over work or an attached doc is frontmost."""
-    if not has_meet(event):
+    """True if, during a Meet event, the frontmost app is neither Meet nor an attached doc."""
+    if not has_meet(event) or not frontmost or frontmost in OWN_APPS:
         return False
     meet_app = (app_meet or "").rstrip("/").rsplit("/", 1)[-1].removesuffix(".app")
-    others = [w for w in windows if w["owner"] not in OWN_APPS]
-    for w in others:
-        if w["layer"] <= 0 and not (meet_app and w["owner"] == meet_app and _covers(w, screen)):
-            continue
-        if has_titles:
-            t = w["title"].lower()
-            if "meet" in t or "picture in picture" in t or "picture-in-picture" in t:
-                return True
-        elif (w["owner"] in BROWSERS or w["owner"] == meet_app) and 0 < w["w"] <= PIP_MAX_W and 0 < w["h"] <= PIP_MAX_H:
-            return True
-        elif meet_app and w["owner"] == meet_app and _covers(w, screen) and frontmost != meet_app:
-            return True
-    if has_titles:
-        attachments = [a.lower() for a in event.get("attachments") or [] if a]
-        front = next((w for w in others if w["owner"] == frontmost and w["layer"] == 0 and w["title"]), None)
-        if front:
-            t = front["title"].lower()
-            if DOC_TITLE.search(front["title"]) or any(a in t for a in attachments):
-                return True
-    return False
+    if frontmost == meet_app:
+        return False
+    if frontmost not in BROWSERS:
+        return True
+    # shortcut: without titles we can't tell which tab, so a browser is never flagged
+    if not has_titles:
+        return False
+    front = next((w for w in windows if w["owner"] == frontmost and w["layer"] == 0 and w["title"]), None)
+    if not front:
+        return False
+    title = front["title"]
+    attachments = [a.lower() for a in event.get("attachments") or [] if a]
+    ok = MEET_TITLE.search(title) or DOC_TITLE.search(title) or any(a in title.lower() for a in attachments)
+    return not ok
 
 
-def _covers(w, screen):
-    return screen[0] > 0 and w["w"] >= 0.9 * screen[0] and w["h"] >= 0.9 * screen[1]
