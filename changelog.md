@@ -1,4 +1,9 @@
 
+## [3.6.0] - 2026-11-23
+
+### Features
+- Focus guard flags leaving the call instead of opening docs
+
 ## [3.5.1] - 2026-11-23
 
 ### Bug Fixes
