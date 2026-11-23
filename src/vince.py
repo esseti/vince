@@ -50,6 +50,7 @@ def _get_bundle_version() -> str:
 
 
 __version__ = _get_bundle_version()
+RELEASES_URL = "https://github.com/esseti/vince/releases/latest"
 
 
 # Suppress PyObjC pointer warnings
@@ -188,12 +189,18 @@ class _SettingsActionHandler(AppKit.NSObject):
     def cancel_(self, sender):
         self.controller.cancel()
 
+    def openUpdate_(self, sender):
+        AppKit.NSWorkspace.sharedWorkspace().openURL_(
+            AppKit.NSURL.URLWithString_(RELEASES_URL)
+        )
+
 
 class SettingsWindowController:
     """Native macOS settings window with form controls."""
 
-    def __init__(self, settings, on_save, available_calendars=None):
+    def __init__(self, settings, on_save, available_calendars=None, update_version=None):
         self._on_save = on_save
+        self._update_version = update_version  # newer release tag, or None
         self._settings = dict(settings)
         self._notification_rows = []
         self._calendar_checkboxes = []  # list of (cal_id, NSButton)
@@ -486,6 +493,16 @@ class SettingsWindowController:
         # ── Bottom bar ────────────────────────────────────────────────
         cv.addSubview_(self._separator(36))
 
+        if self._update_version:
+            cv.addSubview_(self._label(
+                f"⬆ {self._update_version} available", ((margin, 14), (125, 16)), small=True, bold=True))
+            update_btn = AppKit.NSButton.alloc().initWithFrame_(((margin + 125, 8), (90, 28)))
+            update_btn.setTitle_("Update…")
+            update_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
+            update_btn.setTarget_(self._handler)
+            update_btn.setAction_("openUpdate:")
+            cv.addSubview_(update_btn)
+
         cancel_btn = AppKit.NSButton.alloc().initWithFrame_(((W - 210, 8), (96, 28)))
         cancel_btn.setTitle_("Cancel")
         cancel_btn.setBezelStyle_(AppKit.NSBezelStyleRounded)
@@ -610,8 +627,8 @@ class SettingsWindowController:
         AppKit.NSApp.runModalForWindow_(self._window)
 
 
-def _make_settings_controller(settings, on_save, available_calendars=None):
-    return SettingsWindowController(settings, on_save, available_calendars)
+def _make_settings_controller(settings, on_save, available_calendars=None, update_version=None):
+    return SettingsWindowController(settings, on_save, available_calendars, update_version)
 
 
 class Vince(rumps.App):
@@ -634,6 +651,7 @@ class Vince(rumps.App):
         self._notified = False
         self._nudged = {}  # event id -> last nudge epoch
         self.countdown_windows = {}  # Format: {id: {'window': CountdownWindow, 'closed': bool}}
+        self._update_version = None  # set by _check_for_update when a newer release exists
         self._check_for_update()
         # macOS suspends timers while asleep; without this, events stay stale
         # until the next periodic timer fires (up to 7.5 min after waking).
@@ -680,6 +698,7 @@ class Vince(rumps.App):
                         return (0,)
 
                 if _parse(latest) > _parse(__version__):
+                    self._update_version = latest
                     rumps.notification(
                         title="Vince update available",
                         subtitle=f"Version {latest} is out",
@@ -1510,7 +1529,7 @@ class Vince(rumps.App):
 
     def open_settings_window(self, _):
         available_calendars = self._fetch_available_calendars()
-        self._settings_controller = _make_settings_controller(self.settings, self._on_settings_save, available_calendars)
+        self._settings_controller = _make_settings_controller(self.settings, self._on_settings_save, available_calendars, self._update_version)
         self._settings_controller.show()
 
     def _on_settings_save(self, new_settings):
