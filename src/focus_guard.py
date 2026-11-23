@@ -14,6 +14,16 @@ def has_meet(event):
     return any("meet.google.com" in u for u in urls)
 
 
+def has_screen_access():
+    """Screen Recording granted? Never prompts."""
+    try:
+        import Quartz
+    except ImportError:
+        return False
+    preflight = getattr(Quartz, "CGPreflightScreenCaptureAccess", None)
+    return bool(preflight()) if preflight else False
+
+
 def snapshot():
     """Return (windows, frontmost_owner, has_titles, screen_size). Front-to-back windows.
 
@@ -42,8 +52,7 @@ def snapshot():
         )
     app = AppKit.NSWorkspace.sharedWorkspace().frontmostApplication()
     front = str(app.localizedName()) if app else ""
-    preflight = getattr(Quartz, "CGPreflightScreenCaptureAccess", None)
-    has_titles = bool(preflight()) if preflight else False
+    has_titles = has_screen_access()
     screen = AppKit.NSScreen.mainScreen().frame().size if AppKit.NSScreen.mainScreen() else None
     size = (screen.width, screen.height) if screen else (0, 0)
     return windows, front, has_titles, size

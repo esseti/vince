@@ -280,7 +280,7 @@ class SettingsWindowController:
             + 15 + 6                    # MEETINGS header
             + cb_h + row_gap            # Open links
             + cb_h + row_gap            # Focus guard
-            + 14 + row_gap              # Focus guard hint
+            + 28 + row_gap              # Focus guard hint
             + field_h + row_gap         # Meeting app row
             + sep_gap + 1 + sec_gap     # separator
             + 15 + 6                    # NOTIFICATIONS header
@@ -431,10 +431,14 @@ class SettingsWindowController:
         )
         cv.addSubview_(self._focus_cb)
         y -= row_gap
-        y -= 14
-        cv.addSubview_(self._label(
-            "Best with Screen Recording allowed for Vince (System Settings → Privacy).",
-            ((margin + 18, y), (W - 2 * margin - 18, 14)), small=True, secondary=True))
+        y -= 28
+        hint = self._label(
+            "✓ Screen Recording allowed" if focus_guard.has_screen_access()
+            else "⚠ Screen Recording not allowed: Google Docs/Meet titles not detected. "
+            "Allow Vince in System Settings → Privacy & Security, then restart.",
+            ((margin + 18, y), (W - 2 * margin - 18, 28)), small=True, secondary=True)
+        hint.setLineBreakMode_(AppKit.NSLineBreakByWordWrapping)
+        cv.addSubview_(hint)
         y -= row_gap
 
         # Meeting app row: label + field + Browse button
@@ -1261,6 +1265,14 @@ class Vince(rumps.App):
                 windows, front, has_titles, screen = focus_guard.snapshot()
                 hit = focus_guard.is_distracted(
                     windows, front, has_titles, screen, event, self.settings.get("app_meet", "")
+                )
+                logging.debug(
+                    f"focus_check: titles={has_titles} front={front!r} "
+                    + str([(w["owner"], w["title"][:40], w["layer"], int(w["w"]), int(w["h"]))
+                           for w in windows
+                           if w["owner"] not in focus_guard.OWN_APPS
+                           and w["owner"] != "Window Server"
+                           and (w["owner"] == front or w["layer"] > 0)][:5])
                 )
             except Exception:
                 logging.debug("focus check failed", exc_info=True)
