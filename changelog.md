@@ -1,4 +1,9 @@
 
+## [3.5.1] - 2026-11-23
+
+### Bug Fixes
+- Show Screen Recording status for focus guard in settings
+
 ## [3.5.0] - 2026-11-20
 
 ### Bug Fixes
